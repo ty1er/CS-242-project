@@ -12,7 +12,7 @@ import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 public class Analytics {
-    public static Job createCounterJob() throws IOException {
+    public static Job createFollowerCounterJob() throws IOException {
         Job job = new Job(new Configuration(), "Analytics"); 
         job.setJarByClass(Analytics.class);
 
@@ -25,13 +25,13 @@ public class Analytics {
         job.setOutputKeyClass(LongWritable.class);
         job.setOutputValueClass(LongWritable.class);
 
-        job.setMapperClass(AnalyticsMapper.class);
-        job.setReducerClass(AnalyticsReducer.class);
+        job.setMapperClass(KeyCounterMapper.class);
+        job.setReducerClass(CounterReducer.class);
 
         return job;
     }
     
-    public static Job createHistorgammJob() throws IOException {
+    public static Job createFollowerHistorgammJob() throws IOException {
         Job job = new Job(new Configuration(), "Histogramm"); 
         job.setJarByClass(Analytics.class);
 
@@ -44,13 +44,13 @@ public class Analytics {
         job.setOutputKeyClass(LongWritable.class);
         job.setOutputValueClass(LongWritable.class);
 
-        job.setMapperClass(HistogrammMapper.class);
-        job.setReducerClass(AnalyticsReducer.class);
+        job.setMapperClass(ValueCounterMapper.class);
+        job.setReducerClass(CounterReducer.class);
 
         return job;
     }
 
-    public static class AnalyticsMapper extends Mapper<Text, Text, LongWritable, LongWritable> {        
+    public static class KeyCounterMapper extends Mapper<Text, Text, LongWritable, LongWritable> {        
         @Override
         protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
             Long longKey = Long.parseLong(key.toString());
@@ -58,7 +58,7 @@ public class Analytics {
         }
     }
     
-    public static class AnalyticsReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
+    public static class CounterReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
         
         @Override 
         protected void reduce(LongWritable key, Iterable<LongWritable> values, Context context) throws IOException, InterruptedException {
@@ -69,7 +69,7 @@ public class Analytics {
         }
     }
     
-    public static class HistogrammMapper extends Mapper<Text, Text, LongWritable, LongWritable> {        
+    public static class ValueCounterMapper extends Mapper<Text, Text, LongWritable, LongWritable> {        
         @Override
         protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
             Long longVal = Long.parseLong(value.toString());

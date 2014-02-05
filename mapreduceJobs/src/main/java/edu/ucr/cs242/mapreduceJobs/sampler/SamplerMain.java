@@ -35,7 +35,7 @@ public class SamplerMain extends Configured implements Tool {
         if (!sortingJobCompletion)
             return 0;
 
-        Job analyticsJob = Analytics.createCounterJob();
+        Job analyticsJob = Analytics.createFollowerCounterJob();
         Path outputPath2 = new Path(args[1] + "/analytics");
         if (hdfs.exists(outputPath2))
             hdfs.delete(outputPath2, true);
@@ -45,7 +45,7 @@ public class SamplerMain extends Configured implements Tool {
         if (!sortingJobCompletion)
             return 0;
 
-        Job histogrammJob = Analytics.createHistorgammJob();
+        Job histogrammJob = Analytics.createFollowerHistorgammJob();
         Path outputPath3 = new Path(args[1] + "/histogramm");
         if (hdfs.exists(outputPath3))
             hdfs.delete(outputPath3, true);
