@@ -26,14 +26,32 @@ public class SamplerMain extends Configured implements Tool {
         samplerJob.getConfiguration().setLong("totalSize", Integer.valueOf(args[2]));
         samplerJob.getConfiguration().setLong("sampleSize", Integer.valueOf(args[3]));
         FileSystem hdfs = FileSystem.get(samplerJob.getConfiguration());
-        Path outputPath = new Path(args[1]);
-        if (hdfs.exists(outputPath))
-            hdfs.delete(outputPath, true);
+        Path outputPath1 = new Path(args[1]);
+        if (hdfs.exists(outputPath1))
+            hdfs.delete(outputPath1, true);
         FileInputFormat.addInputPath(samplerJob, new Path(args[0]));
-        FileOutputFormat.setOutputPath(samplerJob, outputPath);
-        // To set the number of mapper in the Fagin Algorithm, just cancal the commit symbol
-        // sortingJob.setNumReduceTasks(2);
+        FileOutputFormat.setOutputPath(samplerJob, outputPath1);
         boolean sortingJobCompletion = samplerJob.waitForCompletion(true);
+        if (!sortingJobCompletion)
+            return 0;
+
+        Job analyticsJob = Analytics.createCounterJob();
+        Path outputPath2 = new Path(args[1] + "/analytics");
+        if (hdfs.exists(outputPath2))
+            hdfs.delete(outputPath2, true);
+        FileInputFormat.addInputPath(analyticsJob, outputPath1);
+        FileOutputFormat.setOutputPath(analyticsJob, outputPath2);
+        sortingJobCompletion = analyticsJob.waitForCompletion(true);
+        if (!sortingJobCompletion)
+            return 0;
+
+        Job histogrammJob = Analytics.createHistorgammJob();
+        Path outputPath3 = new Path(args[1] + "/histogramm");
+        if (hdfs.exists(outputPath3))
+            hdfs.delete(outputPath3, true);
+        FileInputFormat.addInputPath(histogrammJob, outputPath2);
+        FileOutputFormat.setOutputPath(histogrammJob, outputPath3);
+        sortingJobCompletion = histogrammJob.waitForCompletion(true);
         if (!sortingJobCompletion)
             return 0;
 
