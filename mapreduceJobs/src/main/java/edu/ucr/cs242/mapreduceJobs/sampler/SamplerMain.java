@@ -20,41 +20,56 @@ public class SamplerMain extends Configured implements Tool {
     public int run(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
 
         Job samplerJob = RandomSampler.createJob();
-        if (args.length < 4)
+        if (args.length < 5)
             return 0;
         
-        samplerJob.getConfiguration().setLong("totalSize", Integer.valueOf(args[2]));
-        samplerJob.getConfiguration().setLong("sampleSize", Integer.valueOf(args[3]));
+        //Sampling users
+        samplerJob.getConfiguration().setLong("totalSize", Integer.valueOf(args[3]));
+        samplerJob.getConfiguration().setLong("sampleSize", Integer.valueOf(args[4]));
         FileSystem hdfs = FileSystem.get(samplerJob.getConfiguration());
-        Path outputPath1 = new Path(args[1]);
+        Path outputPath1 = new Path(args[2]);
         if (hdfs.exists(outputPath1))
             hdfs.delete(outputPath1, true);
         FileInputFormat.addInputPath(samplerJob, new Path(args[0]));
         FileOutputFormat.setOutputPath(samplerJob, outputPath1);
-        boolean sortingJobCompletion = samplerJob.waitForCompletion(true);
-        if (!sortingJobCompletion)
+        boolean jobCompleted = samplerJob.waitForCompletion(true);
+        if (!jobCompleted)
             return 0;
 
+        //Getting number of followers per user
         Job analyticsJob = Analytics.createFollowerCounterJob();
-        Path outputPath2 = new Path(args[1] + "/analytics");
+        Path outputPath2 = new Path(args[2] + "/analytics");
         if (hdfs.exists(outputPath2))
             hdfs.delete(outputPath2, true);
         FileInputFormat.addInputPath(analyticsJob, outputPath1);
         FileOutputFormat.setOutputPath(analyticsJob, outputPath2);
-        sortingJobCompletion = analyticsJob.waitForCompletion(true);
-        if (!sortingJobCompletion)
+        jobCompleted = analyticsJob.waitForCompletion(true);
+        if (!jobCompleted)
             return 0;
 
+        //Getting histogramm distribution for the number of followers
         Job histogrammJob = Analytics.createFollowerHistorgammJob();
-        Path outputPath3 = new Path(args[1] + "/histogramm");
+        Path outputPath3 = new Path(args[2] + "/histogramm");
         if (hdfs.exists(outputPath3))
             hdfs.delete(outputPath3, true);
         FileInputFormat.addInputPath(histogrammJob, outputPath2);
         FileOutputFormat.setOutputPath(histogrammJob, outputPath3);
-        sortingJobCompletion = histogrammJob.waitForCompletion(true);
-        if (!sortingJobCompletion)
+        jobCompleted = histogrammJob.waitForCompletion(true);
+        if (!jobCompleted)
             return 0;
 
+        //Filtering user's screen names
+        Job screenNameJoinJob = ScreenNameFilter.createJoinJob();
+        Path outputPath4 = new Path(args[2] + "/screenNames");
+        if (hdfs.exists(outputPath4))
+            hdfs.delete(outputPath4, true);
+        FileInputFormat.addInputPath(screenNameJoinJob, new Path(args[1]));
+        FileInputFormat.addInputPath(screenNameJoinJob, outputPath2);
+        FileOutputFormat.setOutputPath(screenNameJoinJob, outputPath4);
+        jobCompleted = screenNameJoinJob.waitForCompletion(true);
+        if (!jobCompleted)
+            return 0;
+        
         return 1;
     }
 }
