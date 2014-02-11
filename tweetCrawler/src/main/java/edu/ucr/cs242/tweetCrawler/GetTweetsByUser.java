@@ -30,7 +30,7 @@ public class GetTweetsByUser {
 	// input file format 'userId numberOfFollowers'
 	public GetTweetsByUser(String userNamesFile) {
 		userSet = new THashSet<Long>(0);
-		//readUserFile(userNamesFile);
+		readUserFile(userNamesFile);
 		twitter = new TwitterFactory().getInstance();
 		userThreadpool = Executors.newFixedThreadPool(1);
 		retweetThreadpool = Executors.newScheduledThreadPool(20);
@@ -66,21 +66,27 @@ public class GetTweetsByUser {
 			numRequests++;
 
 			for (Status tweet : tweets) {
-				IDs reTweetReturn = twitter.getRetweeterIds(tweet.getId(), 200,
+				if (tweet.isRetweet()){
+					continue;
+					
+				}
+				List <Long> reTweetList = new ArrayList<Long>();
+				if (tweet.getRetweetCount() > 0){
+					IDs reTweetReturn = twitter.getRetweeterIds(tweet.getId(), 200,
 						-1);
-				numRequests++;
-				long[] retweetIds = reTweetReturn.getIDs();
-				List<Long> reTweetList = new ArrayList<Long>();
-				for (long retweetId : retweetIds) {
-					if (userSet.contains(retweetId)) {
-						reTweetList.add(retweetId);
+					numRequests++;
+					long[] retweetIds = reTweetReturn.getIDs();
+					for (long retweetId : retweetIds) {
+						if (userSet.contains(retweetId)) {
+							reTweetList.add(retweetId);
+						}
 					}
 				}
 
 				System.out.println("User:" + tweet.getUser().getScreenName()
 						+ " Date:" + tweet.getCreatedAt() + " Text:"
 						+ tweet.getText() + " Number of reTweets:"
-						+ reTweetList.size() + " Users who retweeted:"
+						+ tweet.getRetweetCount() + " Number from our data set:" + reTweetList.size() + " Users from our set who retweeted:"
 						+ reTweetList);
 			}
 
