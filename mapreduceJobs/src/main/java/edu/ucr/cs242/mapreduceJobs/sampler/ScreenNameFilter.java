@@ -43,20 +43,21 @@ public class ScreenNameFilter {
         
         @Override 
         protected void reduce(LongWritable key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-            boolean screenNameTuple = false;
+            int i = 0;
+            String screenName = "";
             for (Text value : values)
             {
+                i++;
                 try {
                     Long.parseLong(value.toString());
-                    screenNameTuple = true;
                 }
                 catch(NumberFormatException nfe)
                 {
-                    if (screenNameTuple)
-                        context.write(key, value);
-                    continue;
+                    screenName = value.toString();
                 }
             }
+            if (i > 1)
+                context.write(key, new Text(screenName));
         }
     }
     

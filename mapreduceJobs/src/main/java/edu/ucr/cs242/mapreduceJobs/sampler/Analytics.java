@@ -25,7 +25,7 @@ public class Analytics {
         job.setOutputKeyClass(LongWritable.class);
         job.setOutputValueClass(LongWritable.class);
 
-        job.setMapperClass(KeyCounterMapper.class);
+        job.setMapperClass(CounterMapper.class);
         job.setReducerClass(CounterReducer.class);
 
         return job;
@@ -50,11 +50,13 @@ public class Analytics {
         return job;
     }
 
-    public static class KeyCounterMapper extends Mapper<Text, Text, LongWritable, LongWritable> {        
+    public static class CounterMapper extends Mapper<Text, Text, LongWritable, LongWritable> {        
         @Override
         protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
             Long longKey = Long.parseLong(key.toString());
             context.write(new LongWritable(longKey),new LongWritable(1L));
+            Long longValue = Long.parseLong(value.toString());
+            context.write(new LongWritable(longValue),new LongWritable(0L));
         }
     }
     
