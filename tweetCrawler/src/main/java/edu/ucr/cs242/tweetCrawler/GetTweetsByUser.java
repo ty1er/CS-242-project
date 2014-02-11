@@ -27,28 +27,17 @@ public class GetTweetsByUser {
         }
         Twitter twitter = new TwitterFactory().getInstance();
         try {
-        	Query query = new Query("from:" + args[0]);
         	int numRequests = 0;
-        	query.setSince("2013-02-10");
-        	query.setUntil("2014-02-10");
-        	query.setResultType("recent");
-        	query.setCount(100);
-            QueryResult result;
             do {
-                result = twitter.search(query);
+                Paging paging = new Paging(1, 200);
+                List<Status> tweets = twitter.getUserTimeline(args[0], paging);
                 numRequests++;
-                List<Status> tweets = result.getTweets();
-                //Get all tweets from the month
-                while (result.nextQuery() != null){
-                	result = twitter.search(result.nextQuery());
-                	List<Status> moreTweets = result.getTweets();
-                	numRequests++;
-                	tweets.addAll(moreTweets);
-                }
-                System.out.println("Number of requests to get all tweets:" + numRequests);
+                System.out.println(tweets.size());
+               
             	System.out.println("Number of tweets by " + args[0] + ":" + tweets.size() + " Starting:" + tweets.get(0).getCreatedAt());
                 for (Status tweet : tweets) {
                 	IDs reTweetReturn = twitter.getRetweeterIds(tweet.getId(), 200, -1);
+                	
                 	numRequests++;
                 	long[] retweetIds = reTweetReturn.getIDs();
                 	List<Long> listIDs = new ArrayList<Long>();
