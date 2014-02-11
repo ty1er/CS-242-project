@@ -1,8 +1,10 @@
 package edu.ucr.cs242.tweetCrawler;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import twitter4j.IDs;
 import twitter4j.Paging;
 import twitter4j.Query;
 import twitter4j.QueryResult;
@@ -26,20 +28,55 @@ public class GetTweetsByUser {
         Twitter twitter = new TwitterFactory().getInstance();
         try {
         	Query query = new Query("from:" + args[0]);
-        	query.setSince("2011-01-01");
+        	int numRequests = 0;
+        	query.setSince("2013-02-10");
+        	query.setUntil("2014-02-10");
+        	query.setResultType("recent");
+        	query.setCount(100);
             QueryResult result;
             do {
                 result = twitter.search(query);
+                numRequests++;
                 List<Status> tweets = result.getTweets();
+                //Get all tweets from the month
+                while (result.nextQuery() != null){
+                	result = twitter.search(result.nextQuery());
+                	List<Status> moreTweets = result.getTweets();
+                	numRequests++;
+                	tweets.addAll(moreTweets);
+                }
+                System.out.println("Number of requests to get all tweets:" + numRequests);
+            	System.out.println("Number of tweets by " + args[0] + ":" + tweets.size() + " Starting:" + tweets.get(0).getCreatedAt());
                 for (Status tweet : tweets) {
-                	List<Status> retweets = twitter.getRetweets(tweet.getId());
-                	List <String> reTweetList = new ArrayList<String>();
-                    for (Status retweet : retweets) {
-                    	if (true){// This should be our check to confirm that the user of the retweet is one of our users.
-                    		reTweetList.add(retweet.getUser().getScreenName());
+                	IDs reTweetReturn = twitter.getRetweeterIds(tweet.getId(), 200, -1);
+                	numRequests++;
+                	long[] retweetIds = reTweetReturn.getIDs();
+                	List<Long> listIDs = new ArrayList<Long>();
+
+                	for (int i =0; i < retweetIds.length; i++){
+                		listIDs.add(retweetIds[i]);
+                	}
+                	
+                	//Get all retweets
+                	System.out.println("Retweet next cursor was:" + reTweetReturn.getNextCursor());
+                	while (reTweetReturn.getNextCursor() > 0){
+                		reTweetReturn = twitter.getRetweeterIds(tweet.getId(), 200, reTweetReturn.getNextCursor());
+                		retweetIds = reTweetReturn.getIDs();
+                    	for (int i =0; i < retweetIds.length; i++){
+                    		listIDs.add(retweetIds[i]);
+                    	}
+                		numRequests++;
+                	}
+                	System.out.println("Number of requests to get all tweets + retweets:" + numRequests);
+             
+                	List <Long> reTweetList = new ArrayList<Long>();
+                    for (long retweetId : listIDs) {
+                    	if (true){// TODO: This should be our check to confirm that the user of the retweet is one of our users.
+                    		reTweetList.add(retweetId);
                     	}
                     }
-                    System.out.println("User:" + tweet.getUser().getScreenName() + " Text:" + tweet.getText() + " Users who retweeted:" + reTweetList);
+
+                    System.out.println("User:" + tweet.getUser().getScreenName() + " Date:" + tweet.getCreatedAt() + " Text:" + tweet.getText() + " Number of reTweets:" + reTweetList.size() + " Users who retweeted:" + reTweetList);
                 }
             } while ((query = result.nextQuery()) != null);
             System.exit(0);
