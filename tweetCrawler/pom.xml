@@ -8,6 +8,33 @@
 	</parent>
 	<artifactId>tweetCrawler</artifactId>
 
+	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>edu.ucr.cs242.tweetCrawler.Crawler</mainClass>
+						</manifest>
+					</archive>
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+				</configuration>
+				<executions>
+					<execution>
+						<id>make-assembly</id> <!-- this is used for inheritance merges -->
+						<phase>package</phase> <!-- bind to the packaging phase -->
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.twitter4j</groupId>
@@ -34,29 +61,39 @@
 			<artifactId>trove4j</artifactId>
 			<version>3.0.3</version>
 		</dependency>
-		        <dependency>
-            <artifactId>lucene-core</artifactId>
-            <groupId>org.apache.lucene</groupId>
-            <type>jar</type>
-            <version>4.3.1</version>
-        </dependency>
-        <dependency>
-            <artifactId>lucene-queryparser</artifactId>
-            <groupId>org.apache.lucene</groupId>
-            <type>jar</type>
-            <version>4.3.1</version>
-        </dependency>
-        <dependency>
-            <artifactId>lucene-analyzers-common</artifactId>
-            <groupId>org.apache.lucene</groupId>
-            <type>jar</type>
-            <version>4.3.1</version>
-        </dependency>
-        <dependency>
-            <artifactId>lucene-demo</artifactId>
-            <groupId>org.apache.lucene</groupId>
-            <type>jar</type>
-            <version>4.3.1</version>
-        </dependency>
+		<dependency>
+			<artifactId>lucene-core</artifactId>
+			<groupId>org.apache.lucene</groupId>
+			<type>jar</type>
+			<version>4.3.1</version>
+		</dependency>
+		<dependency>
+			<artifactId>lucene-queryparser</artifactId>
+			<groupId>org.apache.lucene</groupId>
+			<type>jar</type>
+			<version>4.3.1</version>
+		</dependency>
+		<dependency>
+			<artifactId>lucene-analyzers-common</artifactId>
+			<groupId>org.apache.lucene</groupId>
+			<type>jar</type>
+			<version>4.3.1</version>
+		</dependency>
+		<dependency>
+			<artifactId>lucene-demo</artifactId>
+			<groupId>org.apache.lucene</groupId>
+			<type>jar</type>
+			<version>4.3.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>1.7.6</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<version>1.7.6</version>
+		</dependency>
 	</dependencies>
 </project>
