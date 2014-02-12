@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.lucene.analysis.Analyzer;
@@ -23,10 +24,12 @@ public class CreateLuceneIndex {
 	private class Tweet {
 		String tid;
 		String tweetText;
+		String uid;
 
-		public Tweet(String id, String text) {
+		public Tweet(String id, String user, String text) {
 			this.tid = id;
 			this.tweetText = text;
+			this.uid = user;
 		}
 
 	}
@@ -35,7 +38,8 @@ public class CreateLuceneIndex {
 
 	public CreateLuceneIndex(String tweetFile, String luceneDir)
 			throws IOException {
-		readUserFile(tweetFile);
+		tweets = new ArrayList<Tweet>();
+		readTweetFile(tweetFile);
 
 		System.out.println("Indexing to directory '" + luceneDir + "'...");
 
@@ -65,13 +69,14 @@ public class CreateLuceneIndex {
 			Document doc = new Document();
 			doc.add(new TextField("text", tweet.tweetText, Field.Store.YES));
 			doc.add(new StoredField("id", tweet.tid));
-			System.out.println(doc.toString());
+			doc.add(new StoredField("uid", tweet.uid));
 			writer.addDocument(doc);
 		}
 
 	}
 
-	private void readUserFile(String tweetFile) {
+	private void readTweetFile(String tweetFile) {
+		System.out.println("Reading File");
 		String line = null;
 		BufferedReader br = null;
 		try {
@@ -79,11 +84,15 @@ public class CreateLuceneIndex {
 			line = br.readLine();
 			do {
 				// extract UserId
-				Long userId = Long.parseLong(line.substring(0,
-						line.indexOf('\t')));
-				String tid = "0";
-				String text = "Testing";
-				tweets.add(new Tweet(tid, text));
+				String userId = line.substring(0,line.indexOf('\t'));
+				line = line.substring(line.indexOf('\t')+1);
+				
+				String tid = line.substring(0,line.indexOf('\t'));
+				line = line.substring(line.indexOf('\t')+1);
+				
+				String text = line;
+				Tweet tweet = new Tweet(tid, userId, text);
+				tweets.add(tweet);
 				line = br.readLine();
 			} while (line != null);
 		} catch (IOException e) {
@@ -96,7 +105,10 @@ public class CreateLuceneIndex {
 			System.out.println("Usage [userFile] [luceneDir]");
 			System.exit(-1);
 		}
+		long startTime = System.currentTimeMillis();
 		CreateLuceneIndex luceneCreator = new CreateLuceneIndex(args[0],
 				args[1]);
+		long endTime = System.currentTimeMillis();
+		System.out.println("Total execution time:" + (endTime-startTime));
 	}
 }
