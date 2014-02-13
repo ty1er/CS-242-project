@@ -13,11 +13,11 @@
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<configuration>
-					<archive>
-						<manifest>
-							<mainClass>edu.ucr.cs242.tweetCrawler.Crawler</mainClass>
-						</manifest>
-					</archive>
+<!-- 					<archive> -->
+<!-- 						<manifest> -->
+<!-- 							<mainClass>edu.ucr.cs242.tweetCrawler.CreateLuceneIndex</mainClass> -->
+<!-- 						</manifest> -->
+<!-- 					</archive> -->
 					<descriptorRefs>
 						<descriptorRef>jar-with-dependencies</descriptorRef>
 					</descriptorRefs>
