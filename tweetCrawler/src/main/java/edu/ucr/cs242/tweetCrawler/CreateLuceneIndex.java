@@ -82,7 +82,7 @@ public class CreateLuceneIndex {
 		try {
 			br = new BufferedReader(new FileReader(tweetFile));
 			line = br.readLine();
-			do {
+			while (line != null) {
 				// extract UserId
 				String userId = line.substring(0,line.indexOf('\t'));
 				line = line.substring(line.indexOf('\t')+1);
@@ -94,7 +94,7 @@ public class CreateLuceneIndex {
 				Tweet tweet = new Tweet(tid, userId, text);
 				tweets.add(tweet);
 				line = br.readLine();
-			} while (line != null);
+			}
 		} catch (IOException e) {
 			System.err.println("Failed to read userFile: " + e.getMessage());
 		}

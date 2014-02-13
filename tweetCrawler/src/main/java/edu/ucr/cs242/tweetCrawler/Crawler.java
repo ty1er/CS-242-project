@@ -8,11 +8,12 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -27,67 +28,89 @@ import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableScheduledFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+
 public class Crawler {
 
     private final Set<Long> userSet;
     private final Twitter twitterAPI;
-    private final ScheduledExecutorService crawlThreadpool;
+    private final ListeningScheduledExecutorService crawlThreadpool;
     private final BufferedWriter tweetLog;
     private final BufferedWriter retweetLog;
+    private final List<ListenableFuture<Long>> futureList;
 
     private static Logger logger = LoggerFactory.getLogger(Crawler.class);
+
     /**
      * @param userNamesFile
      *            input file, containing the list of unique users and number of their followers (unrelated) in the format 'userId\tnumberOfFollowers'
-     * @throws IOException 
+     * @throws IOException
      */
     public Crawler(String userNamesFile, String tweetFile, String retweetFile) throws IOException {
         userSet = new THashSet<Long>(0);
         readUserFile(userNamesFile);
         twitterAPI = new TwitterFactory().getInstance();
-        crawlThreadpool = Executors.newScheduledThreadPool(20);
+        crawlThreadpool = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(20));
         tweetLog = new BufferedWriter(new FileWriter(tweetFile));
         retweetLog = new BufferedWriter(new FileWriter(retweetFile));
+        futureList = new LinkedList<ListenableFuture<Long>>();
     }
 
-    public void crawlTweets(int crawlerId, int crawlerTotalNum) {
+    public void crawlTweets(int crawlerId, int crawlerTotalNum) throws InterruptedException, ExecutionException {
         crawlTweets(userSet, crawlerId, crawlerTotalNum);
     }
 
     /**
      * Main crawler method
-     * @param users collection of user IDs, from which tweets will be collected
-     * @param crawlerId crawler's ID (needed for distributed crawling)
-     * @param crawlerTotalNum total number of crawler instances (needed for distributed crawling)
+     * 
+     * @param users
+     *            collection of user IDs, from which tweets will be collected
+     * @param crawlerId
+     *            crawler's ID (needed for distributed crawling)
+     * @param crawlerTotalNum
+     *            total number of crawler instances (needed for distributed crawling)
+     * @throws ExecutionException
+     * @throws InterruptedException
      */
-    public void crawlTweets(Collection<Long> users, int crawlerId, int crawlerTotalNum) {
+    public void crawlTweets(Collection<Long> users, int crawlerId, int crawlerTotalNum) throws InterruptedException,
+            ExecutionException {
         Long getTimelineTimeout = 0l;
         int i = 0;
         for (final Long user : users) {
             //simple crawling distribution: each crawler process only 1/crawlerTotalNum of all users
             if (i == crawlerId) {
-                logger.info("Retrieving tweets from user #" + user);
-                Future<Long> timelineTimeoutFuture = crawlThreadpool.schedule(new GetTimelineCallable(crawlThreadpool,
-                        user), getTimelineTimeout, TimeUnit.SECONDS);
-                try {
-                    getTimelineTimeout = timelineTimeoutFuture.get();
-                } catch (Exception e) {
-                    logger.error("Failed to retrieve timeline for user #" + user + ":" + e.getMessage());
-                }
+                logger.info("Scheduling timeline retrieval for tweet #" + user + " with timeout " + getTimelineTimeout
+                        + "s");
+                ListenableScheduledFuture<Long> timelineTimeoutFuture = crawlThreadpool.schedule(
+                        new GetTimelineCallable(crawlThreadpool, user), getTimelineTimeout, TimeUnit.SECONDS);
+                futureList.add(timelineTimeoutFuture);
+                //if we have not figured out the timeout
+                if (getTimelineTimeout == 0)
+                    try {
+                        getTimelineTimeout = timelineTimeoutFuture.get();
+                    } catch (Exception e) {
+                        logger.error("Failed to retrieve timeline for user #" + user + ":" + e.getMessage());
+                        e.printStackTrace();
+                    }
             }
-            i = (i+1) % crawlerTotalNum;
+            i = (i + 1) % crawlerTotalNum;
         }
-    }    
-    
-    
+        Futures.allAsList(futureList).get();
+        crawlThreadpool.shutdown();
+    }
+
     /**
      * Callable class, which retrieves user's timeline
      */
     class GetTimelineCallable implements Callable<Long> {
-        private final ScheduledExecutorService scheduledExecutorService;
+        private final ListeningScheduledExecutorService scheduledExecutorService;
         private final Long userId;
 
-        public GetTimelineCallable(ScheduledExecutorService executorService, Long userId) {
+        public GetTimelineCallable(ListeningScheduledExecutorService executorService, Long userId) {
             scheduledExecutorService = executorService;
             this.userId = userId;
         }
@@ -97,18 +120,28 @@ public class Crawler {
                 Paging paging = new Paging(1, 200);
                 ResponseList<Status> tweets = twitterAPI.getUserTimeline(userId, paging);
 
+                logger.info("GetTimeline API calls remaining:" + tweets.getRateLimitStatus().getRemaining());
+
                 Long getRetweetsTimeout = 0l;
                 for (Status tweet : tweets) {
-                    tweetLog.write(tweet.getUser().getId() + "\t" + tweet.getId() + "\t" + tweet.getText());
+                    tweetLog.write(tweet.getUser().getId() + "\t" + tweet.getId() + "\t"
+                            + tweet.getText().replace('\n', ' ').replace('\r', ' ').replace('\t', ' '));
                     tweetLog.newLine();
-                    Future<Long> retweetTimelineFuture = scheduledExecutorService.schedule(new GetRetweetsCallable(
-                            tweet), getRetweetsTimeout, TimeUnit.SECONDS);
-                    getRetweetsTimeout = retweetTimelineFuture.get();
+                    tweetLog.flush();
+                    logger.info("Scheduling retweet retrieval for tweet #" + tweet.getId() + " with timeout "
+                            + getRetweetsTimeout + "s");
+                    ListenableScheduledFuture<Long> retweetTimelineFuture = scheduledExecutorService.schedule(
+                            new GetRetweetsCallable(tweet), getRetweetsTimeout, TimeUnit.SECONDS);
+                    futureList.add(retweetTimelineFuture);
+                    //if we have not figured out the timeout
+                    if (getRetweetsTimeout == 0)
+                        getRetweetsTimeout = retweetTimelineFuture.get();
                 }
 
                 return getScheduleInterval(tweets.getRateLimitStatus());
             } catch (TwitterException te) {
                 logger.error("Failed to search tweets: " + te.getMessage());
+                te.printStackTrace();
                 return 0l;
             }
         }
@@ -132,9 +165,12 @@ public class Crawler {
             }
             StringBuilder sb = new StringBuilder();
             long timeout = 0;
-            if (tweet.getRetweetCount() > 0) {
+            if (tweet.isRetweeted()) {
                 sb.append(tweet.getId()).append('\t');
                 IDs reTweetReturn = twitterAPI.getRetweeterIds(tweet.getId(), 200, -1);
+
+                logger.info("GetRetweet API calls remaining:" + reTweetReturn.getRateLimitStatus().getRemaining());
+
                 long[] retweetIds = reTweetReturn.getIDs();
                 int i = 0;
                 for (long retweetId : retweetIds) {
@@ -145,24 +181,26 @@ public class Crawler {
                 }
                 retweetLog.append(sb.toString());
                 retweetLog.newLine();
-                if (i>0)
+                retweetLog.flush();
+                if (i > 0)
                     logger.info("Discovered " + i + " retweets for tweet #" + tweet.getId());
                 timeout = getScheduleInterval(reTweetReturn.getRateLimitStatus());
             }
 
-//            System.out.println("User:" + tweet.getUser().getScreenName() + " Date:" + tweet.getCreatedAt() + " Text:"
-//                    + tweet.getText() + " Number of reTweets:" + tweet.getRetweetCount() + " Number from our data set:"
-//                    + reTweetList.size() + " Users from our set who retweeted:" + reTweetList);
+            //            System.out.println("User:" + tweet.getUser().getScreenName() + " Date:" + tweet.getCreatedAt() + " Text:"
+            //                    + tweet.getText() + " Number of reTweets:" + tweet.getRetweetCount() + " Number from our data set:"
+            //                    + reTweetList.size() + " Users from our set who retweeted:" + reTweetList);
 
             return timeout;
         }
 
     }
 
-
     /**
      * Method constructs a set of unique user IDs from the user-followers file
-     * @param userNamesFile file containing userId and number of user's followers
+     * 
+     * @param userNamesFile
+     *            file containing userId and number of user's followers
      */
     private void readUserFile(String userNamesFile) {
         String line = null;
@@ -170,20 +208,23 @@ public class Crawler {
         try {
             br = new BufferedReader(new FileReader(userNamesFile));
             line = br.readLine();
-            do {
+            while (line != null) {
                 // extract UserId
                 Long userId = Long.parseLong(line.substring(0, line.indexOf('\t')));
                 userSet.add(userId);
                 line = br.readLine();
-            } while (line != null);
+            } 
         } catch (IOException e) {
             logger.error("Failed to read userFile: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     /**
      * Method returns timeout before the next Twitter API call (to distribute API calls uniformly)
-     * @param limit status, retrieved from Twitter API call
+     * 
+     * @param limit
+     *            status, retrieved from Twitter API call
      * @return timeout
      */
     private long getScheduleInterval(RateLimitStatus limit) {
@@ -200,8 +241,16 @@ public class Crawler {
             tweetCrawler.crawlTweets(Integer.parseInt(args[3]), Integer.parseInt(args[4]));
         } catch (NumberFormatException e) {
             logger.error("Error while parsing program arguments:" + e.getMessage());
+            e.printStackTrace();
         } catch (IOException e) {
             logger.error("Error while writing output file:" + e.getMessage());
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            logger.error("Error while executing crawl job:" + e.getMessage());
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            logger.error("Error while executing crawl job:" + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
