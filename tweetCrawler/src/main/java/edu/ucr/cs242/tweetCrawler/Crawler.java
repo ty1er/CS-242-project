@@ -64,16 +64,16 @@ public class Crawler {
         this.userSet = new THashSet<Long>(0);
         this.crawledSet = new THashSet<Long>(0);
         readUserFile(userNamesFile);
+        readCrawlLogFile(crawlLogFile);
         this.twitterAPI = new TwitterFactory().getInstance();
         this.crawlThreadpool = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(50));
-        this.tweetLog = new BufferedWriter(new FileWriter(tweetFile));
-        this.retweetLog = new BufferedWriter(new FileWriter(retweetFile));
-        this.favoritesLog = new BufferedWriter(new FileWriter(favoritesFile));
-        this.crawlLog = new BufferedWriter(new FileWriter(crawlLogFile));
+        this.tweetLog = new BufferedWriter(new FileWriter(tweetFile, true));
+        this.retweetLog = new BufferedWriter(new FileWriter(retweetFile, true));
+        this.favoritesLog = new BufferedWriter(new FileWriter(favoritesFile, true));
+        this.crawlLog = new BufferedWriter(new FileWriter(crawlLogFile, true));
         this.totalFutureList = new LinkedList<ListenableFuture<RateLimitStatus>>();
         this.crawlerId = crawlerId;
         this.crawlerTotalNum = crawlerTotalNum;
-        readCrawlLogFile(crawlLogFile);
     }
 
     public void crawlTweets() throws InterruptedException, ExecutionException {
@@ -93,8 +93,7 @@ public class Crawler {
      * @throws InterruptedException
      * @throws TwitterException 
      */
-    public void crawlTweets(final Collection<Long> users) throws InterruptedException,
-            ExecutionException {
+    public void crawlTweets(final Collection<Long> users) {
         long[] usersForLookup = new long[100];
         int i = 0;
         int j = 0;
@@ -110,26 +109,21 @@ public class Crawler {
                 } catch (TwitterException te) {
                     if (te.exceededRateLimitation()) {
                         logger.error("UserLookup API call limit was exeeded. Rescheduling task after " + te.getRateLimitStatus().getSecondsUntilReset() + " s");
-                        crawlThreadpool.schedule(new Runnable() {
-                            
-                            public void run() {
-                                try {
+                        try {
+                            crawlThreadpool.schedule(new Runnable() {
+                                
+                                public void run() {
                                     crawlTweets(users);
-                                } catch (InterruptedException e) {
-                                    // TODO Auto-generated catch block
-                                    e.printStackTrace();
-                                } catch (ExecutionException e) {
-                                    // TODO Auto-generated catch block
-                                    e.printStackTrace();
                                 }
-                            }
-                        }, te.getRateLimitStatus().getSecondsUntilReset(), TimeUnit.SECONDS).get();
-                        return;
+                            }, te.getRateLimitStatus().getSecondsUntilReset(), TimeUnit.SECONDS).get();
+                        } catch (Exception e) {
+                            logger.error("Error during userLookup for userIds " + Joiner.on(", ").join(Longs.asList(usersForLookup)));
+                            te.printStackTrace();                            
+                        }
                     }
                     else {
                         logger.error("Error during userLookup for userIds " + Joiner.on(", ").join(Longs.asList(usersForLookup)));
                         te.printStackTrace();
-                        return;
                     }
                 }
 
@@ -141,26 +135,33 @@ public class Crawler {
                 List<ListenableScheduledFuture<RateLimitStatus>> timelineFutureList = new LinkedList<ListenableScheduledFuture<RateLimitStatus>>();
                 for (final User user : fileredUsers) {
                     //check if the user was already crawled
-                    if (crawledSet.contains(user))
+                    if (crawledSet.contains(user.getId())) {
+                        logger.info("User #" + user.getId() + " was already crawled");
                         continue;
+                    }
                     //check if user is protected
                     if (user.isProtected())
                         continue;
                     //if API call limit is exhausted do a blocking call;
                     if (callsLeft == 0) {
                         logger.info("All GetTimeline API calls were schduled");
-                        RateLimitStatus limitStatus = timelineTimeoutFuture.get();
-                        getTimelineTimeout = 0;
-                        totalTimeout = 0;
-                        logger.info("Sleeping for 5 minutes, wating for the next hour");
-                        //should not execute this branch, add 5 minute sleep just in case
-                        if (limitStatus.getLimit() == 0)
+                        try {
+                            RateLimitStatus limitStatus = timelineTimeoutFuture.get();
+                            getTimelineTimeout = 0;
+                            totalTimeout = 0;
+                            logger.info("Sleeping for 5 minutes, wating for the next hour");
+                            //should not execute this branch, add 5 minute sleep just in case
+                            if (limitStatus.getLimit() == 0)
                             Thread.sleep(30000);
+                        } catch(Exception e) {
+                            logger.error("Failed to retrieve timeline for user #" + user.getId() + ":" + e.getMessage());
+                            e.printStackTrace();
+                        }
                     }
                     //simple crawling distribution: each crawler process only 1/crawlerTotalNum of all users
                     if (k == crawlerId) {
                         totalTimeout += getTimelineTimeout;
-                        logger.info("Scheduling timeline retrieval for tweet #" + user.getId() + " with timeout " + totalTimeout
+                        logger.info("Scheduling timeline retrieval for user #" + user.getId() + " with timeout " + totalTimeout
                                 + "s");
                         timelineTimeoutFuture = crawlThreadpool.schedule(
                                 new GetTimelineCallable(user), totalTimeout, TimeUnit.SECONDS);
@@ -181,14 +182,26 @@ public class Crawler {
                     }
                     k = (k + 1) % crawlerTotalNum;
                 }
-                Futures.allAsList(timelineFutureList).get();
+                try {
+                    Futures.allAsList(timelineFutureList).get();
+                } catch (Exception e) {
+                    logger.error("Failed to retrieve timelines for users batch #" + j + " " + Joiner.on(", ").join(Longs.asList(usersForLookup)));
+                    e.printStackTrace();
+                }
                 i = 0;
                 usersForLookup = new long[100];
             }
         }
 
-        Futures.allAsList(totalFutureList).get();
-        crawlThreadpool.shutdown();
+        try {
+            Futures.allAsList(totalFutureList).get();
+        } catch (Exception e) {
+            logger.error("Failure during crawling");
+            e.printStackTrace();
+        }
+        finally {
+            crawlThreadpool.shutdown();
+        }
     }
 
     /**
@@ -365,12 +378,15 @@ public class Crawler {
         try {
             br = new BufferedReader(new FileReader(crawlLogFile));
             line = br.readLine();
+            int i = 0;
             while (line != null) {
+                i++;
                 // extract crawled UserId
                 Long userId = Long.parseLong(line);
                 crawledSet.add(userId);
                 line = br.readLine();
             } 
+            logger.info("Read " + i + " already crawled users from crawlLogFile");
         } catch (IOException e) {
             logger.error("Failed to read crawlLogFile: " + e.getMessage());
             e.printStackTrace();
