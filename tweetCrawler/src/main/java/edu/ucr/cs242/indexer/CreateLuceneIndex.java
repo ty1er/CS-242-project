@@ -1,4 +1,4 @@
-package edu.ucr.cs242.tweetCrawler;
+package edu.ucr.cs242.indexer;
 
 import java.io.BufferedReader;
 import java.io.File;
