@@ -201,6 +201,7 @@ public class Crawler {
         }
         finally {
             crawlThreadpool.shutdown();
+            logger.info("!!!! Crawling ended!!!!");
         }
     }
 
