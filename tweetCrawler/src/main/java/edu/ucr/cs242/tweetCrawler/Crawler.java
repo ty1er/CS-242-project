@@ -4,10 +4,12 @@ import gnu.trove.set.hash.THashSet;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -28,6 +30,7 @@ import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 import twitter4j.User;
+import twitter4j.conf.ConfigurationBuilder;
 
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Longs;
@@ -51,21 +54,24 @@ public class Crawler {
     private final int crawlerId;
     private final int crawlerTotalNum;
     
-    private final int CRAWLED_TWEETS_PRE_USER = 50;
+    private final int CRAWLED_TWEETS_PRE_USER = 20;
 
     private static Logger logger = LoggerFactory.getLogger(Crawler.class);
 
     /**
      * @param userNamesFile
      *            input file, containing the list of unique users and number of their followers (unrelated) in the format 'userId\tnumberOfFollowers'
-     * @throws IOException
+     * @throws Exception
      */
-    public Crawler(String userNamesFile, String tweetFile, String retweetFile, String favoritesFile, String crawlLogFile, int crawlerId, int crawlerTotalNum) throws IOException {
+    public Crawler(String userNamesFile, String tweetFile, String retweetFile, String favoritesFile, String crawlLogFile, int crawlerId, int crawlerTotalNum) throws Exception {
         this.userSet = new THashSet<Long>(0);
         this.crawledSet = new THashSet<Long>(0);
         readUserFile(userNamesFile);
         readCrawlLogFile(crawlLogFile);
-        this.twitterAPI = new TwitterFactory().getInstance();
+
+        this.twitterAPI = new TwitterFactory(new ConfigurationBuilder().setUseSSL(true).setApplicationOnlyAuthEnabled(true).build()).getInstance();
+//        this.twitterAPI.setOAuthConsumer(this.twitterAPI.getConfiguration().getOAuthAccessToken(), this.twitterAPI.getConfiguration().getOAuthAccessTokenSecret());
+        this.twitterAPI.getOAuth2Token();
         this.crawlThreadpool = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(50));
         this.tweetLog = new BufferedWriter(new FileWriter(tweetFile, true));
         this.retweetLog = new BufferedWriter(new FileWriter(retweetFile, true));
@@ -75,7 +81,7 @@ public class Crawler {
         this.crawlerId = crawlerId;
         this.crawlerTotalNum = crawlerTotalNum;
     }
-
+    
     public void crawlTweets() throws InterruptedException, ExecutionException {
         crawlTweets(userSet);
     }
@@ -97,34 +103,40 @@ public class Crawler {
         long[] usersForLookup = new long[100];
         int i = 0;
         int j = 0;
-        for (final Long userId : users) {
-            if (i < 100)
+        Iterator<Long> userIter = users.iterator();
+        while(userIter.hasNext()) {
+            Long userId = userIter.next();
+            if (i < 100 && userIter.hasNext())
                 usersForLookup[i++] = (long)userId;
-            else {
+            else if (i==100 || !userIter.hasNext()) {
                 logger.info("Looking up users of batch #" + j++ /*+ " with timeout " + totalTimeout
                         + "s"*/);
                 ResponseList<User> fileredUsers = null;
+                final long[] lookupBatch = usersForLookup;
                 try{
-                    fileredUsers = twitterAPI.lookupUsers(usersForLookup);
-                } catch (TwitterException te) {
-                    if (te.exceededRateLimitation()) {
-                        logger.error("UserLookup API call limit was exeeded. Rescheduling task after " + te.getRateLimitStatus().getSecondsUntilReset() + " s");
-                        try {
-                            crawlThreadpool.schedule(new Runnable() {
-                                
-                                public void run() {
-                                    crawlTweets(users);
+                     fileredUsers = crawlThreadpool.submit(new Callable<ResponseList<User>>() {
+                    
+                        public ResponseList<User> call() throws Exception {
+                            ResponseList<User> fileredUsers = null;
+                            try{
+                                fileredUsers = twitterAPI.lookupUsers(lookupBatch);
+                            } catch (TwitterException te) {
+                                if (te.exceededRateLimitation()) {
+                                    logger.error("UserLookup API call limit was exeeded. Rescheduling task after " + te.getRateLimitStatus().getSecondsUntilReset() + " s");
+                                    crawlThreadpool.schedule(this, te.getRateLimitStatus().getSecondsUntilReset(), TimeUnit.SECONDS).get();
                                 }
-                            }, te.getRateLimitStatus().getSecondsUntilReset(), TimeUnit.SECONDS).get();
-                        } catch (Exception e) {
-                            logger.error("Error during userLookup for userIds " + Joiner.on(", ").join(Longs.asList(usersForLookup)));
-                            te.printStackTrace();                            
+                                else {
+                                    logger.error("Error during userLookup for userIds " + Joiner.on(", ").join(Longs.asList(lookupBatch)));
+                                    te.printStackTrace();
+                                    crawlThreadpool.submit(this).get();
+                                }
+                            }
+                            return fileredUsers;
                         }
-                    }
-                    else {
+                    }).get();
+                } catch (Exception te) {
                         logger.error("Error during userLookup for userIds " + Joiner.on(", ").join(Longs.asList(usersForLookup)));
                         te.printStackTrace();
-                    }
                 }
 
                 int getTimelineTimeout = 0;
@@ -236,9 +248,6 @@ public class Crawler {
                         }
                         continue;
                     }
-                    //ignore mention conversations
-                    if (tweet.getInReplyToScreenName() != null)
-                        continue;
                     //break if exceeded tweet quota per user
                     if (i++ >= CRAWLED_TWEETS_PRE_USER)
                         break;
@@ -260,7 +269,7 @@ public class Crawler {
                         favoritesLog.append(tweet.getId() + "\t" + tweet.getFavoriteCount() + "\n");
                         favoritesLog.flush();
                     }
-                    if (tweet.isRetweeted()) {
+                    if (tweet.getRetweetCount() > 0) {
                         totalTimeout += getRetweetsTimeout;
                         logger.info("Scheduling retweet retrieval for tweet #" + tweet.getId() + " with timeout "
                                 + totalTimeout + "s");
@@ -331,11 +340,12 @@ public class Crawler {
                         i++;
                     }
                 }
-                retweetLog.append(sb.toString());
-                retweetLog.newLine();
-                retweetLog.flush();
-                if (i > 0)
+                if (i > 0) {
                     logger.info("Discovered " + i + " retweets for tweet #" + tweet.getId());
+                    retweetLog.append(sb.toString());
+                    retweetLog.newLine();
+                    retweetLog.flush();
+                }
                 return reTweetReturn.getRateLimitStatus();
             } catch (TwitterException te) {
                 if (te.exceededRateLimitation()) {
@@ -376,21 +386,23 @@ public class Crawler {
     private void readCrawlLogFile(String crawlLogFile) {
         String line = null;
         BufferedReader br = null;
-        try {
-            br = new BufferedReader(new FileReader(crawlLogFile));
-            line = br.readLine();
-            int i = 0;
-            while (line != null) {
-                i++;
-                // extract crawled UserId
-                Long userId = Long.parseLong(line);
-                crawledSet.add(userId);
+        if (new File(crawlLogFile).exists()) {
+            try {
+                br = new BufferedReader(new FileReader(crawlLogFile));
                 line = br.readLine();
-            } 
-            logger.info("Read " + i + " already crawled users from crawlLogFile");
-        } catch (IOException e) {
-            logger.error("Failed to read crawlLogFile: " + e.getMessage());
-            e.printStackTrace();
+                int i = 0;
+                while (line != null) {
+                    i++;
+                    // extract crawled UserId
+                    Long userId = Long.parseLong(line);
+                    crawledSet.add(userId);
+                    line = br.readLine();
+                } 
+                logger.info("Read " + i + " already crawled users from crawlLogFile");
+            } catch (IOException e) {
+                logger.error("Failed to read crawlLogFile: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
     }
 
@@ -402,7 +414,7 @@ public class Crawler {
      * @return timeout
      */
     private int getScheduleInterval(RateLimitStatus limit) {
-        return limit.getSecondsUntilReset() / limit.getRemaining();
+        return limit.getSecondsUntilReset() / (limit.getRemaining() + 1);
     }
 
     public static void main(String[] args) {
@@ -419,10 +431,7 @@ public class Crawler {
         } catch (IOException e) {
             logger.error("Error while writing output file:" + e.getMessage());
             e.printStackTrace();
-        } catch (InterruptedException e) {
-            logger.error("Error while executing crawl job:" + e.getMessage());
-            e.printStackTrace();
-        } catch (ExecutionException e) {
+        } catch (Exception e) {
             logger.error("Error while executing crawl job:" + e.getMessage());
             e.printStackTrace();
         }
