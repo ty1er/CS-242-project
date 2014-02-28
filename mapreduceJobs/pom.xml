@@ -10,18 +10,18 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<hadoop.verion>1.0.4</hadoop.verion>
+		<hadoop.verion>2.0.0-cdh4.5.0</hadoop.verion>
 	</properties>
-<!-- 	<repositories> -->
-<!-- 		<repository> -->
-<!-- 			<url>https://repository.cloudera.com/content/repositories/releases/</url> -->
-<!-- 			<id>cloudera</id> -->
-<!-- 		</repository> -->
-<!-- 		<repository> -->
-<!-- 			<url>https://repository.apache.org/content/repositories/releases/</url> -->
-<!-- 			<id>apache</id> -->
-<!-- 		</repository> -->
-<!-- 	</repositories> -->
+	<repositories>
+	<repository>
+	<url>https://repository.cloudera.com/content/repositories/releases/</url>
+	<id>cloudera</id>
+	</repository>
+	<repository>
+	<url>https://repository.apache.org/content/repositories/releases/</url>
+	<id>apache</id>
+	</repository>
+	</repositories>
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
@@ -34,6 +34,11 @@
 			<artifactId>commons-httpclient</artifactId>
 			<version>3.1</version>
 			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.17</version>
 		</dependency>
 	</dependencies>
 
@@ -58,7 +63,7 @@
 					</descriptors>
 					<archive>
 						<manifest>
-							<mainClass>edu.ucr.cs242.mapreduceJobs.sampler.SamplerMain</mainClass>
+							<mainClass>edu.ucr.cs242.mapreduceJobs.pagerank.PageRankMain</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
