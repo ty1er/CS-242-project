@@ -16,7 +16,6 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.log4j.Logger;
 
 import edu.ucr.cs242.mapreduceJobs.pagerank.PageRankMain.IterationCounter;
-import edu.ucr.cs242.mapreduceJobs.tweet.Analytics;
 
 public class PagePank {
 
@@ -26,7 +25,6 @@ public class PagePank {
 
     public static Job createJob() throws IOException {
         Job job = new Job(new Configuration(), "PageRank");
-        job.setJarByClass(Analytics.class);
 
         job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
