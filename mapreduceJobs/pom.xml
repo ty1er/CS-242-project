@@ -40,6 +40,30 @@
 			<artifactId>log4j</artifactId>
 			<version>1.2.17</version>
 		</dependency>
+		<dependency>
+			<artifactId>lucene-core</artifactId>
+			<groupId>org.apache.lucene</groupId>
+			<type>jar</type>
+			<version>4.3.1</version>
+		</dependency>
+		<dependency>
+			<artifactId>lucene-queryparser</artifactId>
+			<groupId>org.apache.lucene</groupId>
+			<type>jar</type>
+			<version>4.3.1</version>
+		</dependency>
+		<dependency>
+			<artifactId>lucene-analyzers-common</artifactId>
+			<groupId>org.apache.lucene</groupId>
+			<type>jar</type>
+			<version>4.3.1</version>
+		</dependency>
+		<dependency>
+			<artifactId>lucene-demo</artifactId>
+			<groupId>org.apache.lucene</groupId>
+			<type>jar</type>
+			<version>4.3.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>
