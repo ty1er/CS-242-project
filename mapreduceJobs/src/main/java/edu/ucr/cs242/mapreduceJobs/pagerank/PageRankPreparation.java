@@ -12,7 +12,6 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import edu.ucr.cs242.mapreduceJobs.tweet.Analytics;
 
 public class PageRankPreparation {
 
@@ -20,7 +19,6 @@ public class PageRankPreparation {
 
     public static Job createJob() throws IOException {
         Job job = new Job(new Configuration(), "PageRankPreparation");
-        job.setJarByClass(Analytics.class);
 
         job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);

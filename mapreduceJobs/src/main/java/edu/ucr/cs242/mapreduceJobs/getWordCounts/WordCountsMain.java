@@ -17,7 +17,6 @@ public class WordCountsMain extends Configured implements Tool {
     public static final double eps = 0.001;
     public static final long counterReciprocal = 100;
 
-    private static Logger log = Logger.getLogger(WordCountsMain.class);
 
     public static void main(String[] args) throws Exception {
         int res = ToolRunner.run(new WordCountsMain(), args);
@@ -27,10 +26,10 @@ public class WordCountsMain extends Configured implements Tool {
 
     public int run(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
 
+    	//inputfolder outputfolder sortoutputfolder minCount
 		if (args.length < 2)
 			return 0;
 
-		log.info("Staring WordCounts Job");
 		Job wcJob = WordCounts.createJob();
 		Path outputPath = new Path(args[1]);
 		Path inputPath = new Path(args[0]);
@@ -43,7 +42,23 @@ public class WordCountsMain extends Configured implements Tool {
 		boolean jobCompleted = wcJob.waitForCompletion(true);
 		if (!jobCompleted)
 			return 0;
-
+		
+		
+		
+		Job sJob = Sorter.createJob();
+		outputPath = new Path(args[2]);
+		inputPath = new Path(args[1]);
+		hdfs = FileSystem.get(sJob.getConfiguration());
+		if (hdfs.exists(outputPath))
+			hdfs.delete(outputPath, true);
+		
+		FileInputFormat.addInputPath(sJob, inputPath);
+		FileOutputFormat.setOutputPath(sJob, outputPath);
+		jobCompleted = sJob.waitForCompletion(true);
+		if (!jobCompleted)
+			return 0;
+		
+		
 		return 1;
 	}
 }

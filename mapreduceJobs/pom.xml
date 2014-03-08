@@ -87,7 +87,7 @@
 					</descriptors>
 					<archive>
 						<manifest>
-							<mainClass>edu.ucr.cs242.mapreduceJobs.pagerank.PageRankMain</mainClass>
+							<mainClass>edu.ucr.cs242.mapreduceJobs.buildluceneindexes.LuceneMain</mainClass>
 						</manifest>
 					</archive>
 				</configuration>

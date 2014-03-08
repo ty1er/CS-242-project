@@ -35,15 +35,16 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 
 import edu.ucr.cs242.mapreduceJobs.getWordCounts.Stemmer;
+import edu.ucr.cs242.mapreduceJobs.getWordCounts.WordCounts;
 
 
 
 public class Lucene {
 	
-	public static String luceneDir;
 	public static Map<String,String> wordmap = new HashMap<String,String>();
 	
-	public static void readTweetFile(String tweetFile) {
+	public static Map<String,String> readTweetFile(String tweetFile) {
+		Map<String,String> wordmap = new HashMap<String,String>();
 		String line = null;
 		BufferedReader br = null;
 		try {
@@ -56,15 +57,19 @@ public class Lucene {
 				
 				String word = line.substring(0,line.indexOf('\t'));
 				line = br.readLine();
-				wordmap.put(word, count);
+				if (Integer.parseInt(count) >= 1000){
+					wordmap.put(word, count);
+				}
 			}
 		} catch (IOException e) {
 			System.err.println("Failed to read userFile: " + e.getMessage());
 		}
+		return wordmap;
 	}
 
-	public static Job createJob(String ldir, String tweetfile) throws IOException {
+	public static Job createJob() throws IOException {
 		Job job = new Job(new Configuration(), "WordCounts");
+		job.setJarByClass(Lucene.class);
 
 		job.setInputFormatClass(KeyValueTextInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
@@ -80,8 +85,7 @@ public class Lucene {
 		job.setMapperClass(WordCountMapper.class);
 		job.setReducerClass(PagePankReducer.class);
 		
-		luceneDir = ldir;
-		readTweetFile(tweetfile);
+
 		//initialize wordmap
 
 		return job;
@@ -92,7 +96,7 @@ public class Lucene {
 
 		@Override
 		public int getPartition(Text key, Text value, int numPartitions) {
-			String newKey = key.toString().substring(0, key.find(":"));
+			String newKey = key.toString();
 			return newKey.hashCode() % numPartitions;
 		}
 	}
@@ -102,16 +106,15 @@ public class Lucene {
 		@Override
 		protected void map(Text key, Text value, Context context)
 				throws IOException, InterruptedException {
+			
+			//Map<String,String> wordmap = readTweetFile("wordcounts.log");
 
+			
 			int tabLocation = value.toString().indexOf('\t');
-			String uid = (value.toString().substring(0,tabLocation));
+			String tid = (value.toString().substring(0,tabLocation));
+			String tweetText = value.toString().substring(tabLocation + 1);
 			
-			String firstCut = value.toString().substring(tabLocation + 1);
-			tabLocation = firstCut.indexOf('\t');
-			String tid = (firstCut.toString().substring(0,tabLocation));
-			
-			
-			String tweetText = firstCut.substring(tabLocation + 1);
+			String uid = key.toString();
 			
 			
 
@@ -131,7 +134,7 @@ public class Lucene {
 				s.add(w, w.length);
 				s.stem();
 				String stemmedWord = s.toString();
-				if (wordmap.containsKey(stemmedWord)) {
+				if (true){//wordmap.containsKey(stemmedWord)) {
 					context.write(new Text(uid + ":" + tid + ":" + stemmedWord), new Text("1"));
 				}
 
@@ -143,7 +146,8 @@ public class Lucene {
 	public static class PagePankReducer extends Reducer<Text, Text, Text, Text> {
 		
 		private IndexWriter writer;
-		
+		//Map<String,String> wordmap = readTweetFile("wordcounts.log");
+		/*
         @Override
         protected void cleanup(Context context) throws IOException,
                 InterruptedException {
@@ -154,19 +158,19 @@ public class Lucene {
         @Override
         protected void setup(Context context) throws IOException,
                 InterruptedException {
-			Directory dir = FSDirectory.open(new File(luceneDir));
+			Directory dir = FSDirectory.open(new File("/user/group42/indexfolder"));
 			Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_40);
 			IndexWriterConfig iwc = new IndexWriterConfig(Version.LUCENE_40,
 					analyzer);
 
 			// Create will overwrite the index everytime
-			iwc.setOpenMode(OpenMode.CREATE);
+			iwc.setOpenMode(OpenMode.APPEND);
 
 			// Create an index writer
 			writer = new IndexWriter(dir, iwc);
         	
         }
-		
+		*/
 		@Override
 		protected void reduce(Text key, Iterable<Text> values, Context context)
 				throws IOException, InterruptedException {
@@ -174,25 +178,31 @@ public class Lucene {
 			if (!valuesIt.hasNext())
 				return;
 			
-			double count = 0;
+			double tf = 0;
             while (valuesIt.hasNext()) {
                 String value = valuesIt.next().toString();
-                count += Double.parseDouble(value);
+                tf += Double.parseDouble(value);
             }
             
             String[] pieces = key.toString().split("\\:");
-            double librarycount = Double.parseDouble(wordmap.get(pieces[2]));
+            //double librarycount = Double.parseDouble(wordmap.get(pieces[2]));
+            //double idf = Math.log(10326522 / librarycount);
+            //double tfidf = tf * idf;
+            double tfidf = tf;
+            
+            //DO HASHTAG STUFF!!!!!
             
             
             
-            double tfidf = count;
-			
+			/*
 			Document doc = new Document();
 			doc.add(new StringField("word", pieces[2], Field.Store.YES));
 			doc.add(new DoubleField("score", tfidf, Field.Store.YES));
 			doc.add(new StringField("tweetid", pieces[1], Field.Store.YES));
 			doc.add(new StringField("uid", pieces[0], Field.Store.YES));
 			writer.addDocument(doc);
+			*/
+            context.write(key, new Text(String.valueOf(tfidf)));
 		}
 	}
 }
