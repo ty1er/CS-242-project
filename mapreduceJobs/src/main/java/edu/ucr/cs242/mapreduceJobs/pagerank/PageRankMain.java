@@ -52,7 +52,7 @@ public class PageRankMain extends Configured implements Tool {
         while (!converged) {
             log.info("Staring PageRank interation #" + iterationCounter);
             //Getting number of followers per user
-            Job prIterationJob = PagePank.createJob();
+            Job prIterationJob = PageRank.createJob();
             //            prIterationJob.getCounters().findCounter(IterationCounter.RESIDUAL).setValue(0);
 
             Path outputPath2 = new Path(args[1] + "/iteration" + iterationCounter);

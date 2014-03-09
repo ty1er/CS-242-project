@@ -17,9 +17,9 @@ import org.apache.log4j.Logger;
 
 import edu.ucr.cs242.mapreduceJobs.pagerank.PageRankMain.IterationCounter;
 
-public class PagePank {
+public class PageRank {
 
-    private static Logger log = Logger.getLogger(PagePank.class);
+    private static Logger log = Logger.getLogger(PageRank.class);
 
     public static final double dampingFactor = 0.85;
 
