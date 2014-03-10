@@ -1,4 +1,4 @@
-package edu.ucr.cs242.mapreduceJobs.buildluceneindexes;
+package edu.ucr.cs242.mapreduceJobs.tfidf;
 
 import java.io.IOException;
 
@@ -13,14 +13,14 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 
-public class LuceneMain extends Configured implements Tool {
+public class TFIDFMain extends Configured implements Tool {
 
     public static final double eps = 0.001;
     public static final long counterReciprocal = 100;
 
 
     public static void main(String[] args) throws Exception {
-        int res = ToolRunner.run(new LuceneMain(), args);
+        int res = ToolRunner.run(new TFIDFMain(), args);
         System.exit(res);
     }
 
@@ -31,7 +31,7 @@ public class LuceneMain extends Configured implements Tool {
 		if (args.length < 2)
 			return 0;
 
-		Job lJob = Lucene.createJob();
+		Job lJob = TFIDF.createJob();
 		Path outputPath = new Path(args[1]);
 		Path inputPath = new Path(args[0]);
 		FileSystem hdfs = FileSystem.get(lJob.getConfiguration());

@@ -25,11 +25,13 @@ public class CreateLuceneIndex {
 		String tid;
 		String tweetText;
 		String uid;
+		double tfidf;
 
-		public Tweet(String id, String user, String text) {
+		public Tweet(String id, String user, String text, double tf) {
 			this.tid = id;
 			this.tweetText = text;
 			this.uid = user;
+			this.tfidf = tf;
 		}
 
 	}
@@ -84,14 +86,12 @@ public class CreateLuceneIndex {
 			line = br.readLine();
 			while (line != null) {
 				// extract UserId
-				String userId = line.substring(0,line.indexOf('\t'));
+				String word = line.substring(0,line.indexOf('\t'));
 				line = line.substring(line.indexOf('\t')+1);
 				
-				String tid = line.substring(0,line.indexOf('\t'));
-				line = line.substring(line.indexOf('\t')+1);
-				
-				String text = line;
-				Tweet tweet = new Tweet(tid, userId, text);
+				String[] pieces = line.split("\\:");
+
+				Tweet tweet = new Tweet(pieces[1], pieces[0], word, Double.parseDouble(pieces[2]));
 				tweets.add(tweet);
 				line = br.readLine();
 			}

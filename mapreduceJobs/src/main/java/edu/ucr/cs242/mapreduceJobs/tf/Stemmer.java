@@ -1,4 +1,4 @@
-package edu.ucr.cs242.mapreduceJobs.getWordCounts;
+package edu.ucr.cs242.mapreduceJobs.tf;
 
 
 /*

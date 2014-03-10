@@ -1,4 +1,4 @@
-package edu.ucr.cs242.mapreduceJobs.getWordCounts;
+package edu.ucr.cs242.mapreduceJobs.tf;
 
 import java.io.IOException;
 
@@ -11,10 +11,10 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
-public class WordCountsMain extends Configured implements Tool {
+public class TFMain extends Configured implements Tool {
 
 	public static void main(String[] args) throws Exception {
-		int res = ToolRunner.run(new WordCountsMain(), args);
+		int res = ToolRunner.run(new TFMain(), args);
 		System.exit(res);
 	}
 
@@ -25,7 +25,7 @@ public class WordCountsMain extends Configured implements Tool {
 		if (args.length < 2)
 			return 0;
 
-		Job wcJob = WordCounts.createJob();
+		Job wcJob = TF.createJob();
 		Path outputPath = new Path(args[1]);
 		Path inputPath = new Path(args[0]);
 		FileSystem hdfs = FileSystem.get(wcJob.getConfiguration());

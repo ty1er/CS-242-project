@@ -1,4 +1,4 @@
-package edu.ucr.cs242.mapreduceJobs.getWordCounts;
+package edu.ucr.cs242.mapreduceJobs.tf;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -6,6 +6,8 @@ import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
@@ -15,13 +17,16 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 
-public class WordCounts {
+import edu.ucr.cs242.mapreduceJobs.pagerank.PageRank.PageRankComparator;
+import edu.ucr.cs242.mapreduceJobs.pagerank.PageRank.PargeRankGroupingComparator;
 
-	private static Logger log = Logger.getLogger(WordCounts.class);
+public class TF {
+
+	private static Logger log = Logger.getLogger(TF.class);
 
 	public static Job createJob() throws IOException {
 		Job job = new Job(new Configuration(), "WordCount");
-		job.setJarByClass(WordCounts.class);
+		job.setJarByClass(TF.class);
 		job.setInputFormatClass(KeyValueTextInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
 
@@ -31,15 +36,15 @@ public class WordCounts {
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(Text.class);
 
-		job.setPartitionerClass(PageRankPartitioner.class);
-
+		job.setPartitionerClass(WordCountPartitioner.class);
 		job.setMapperClass(WordCountMapper.class);
+        job.setGroupingComparatorClass(WordCountGroupingComparator.class);
 		job.setReducerClass(WordCountReducer.class);
 		job.setCombinerClass(WordCountCombiner.class);
 		return job;
 	}
 
-	public static final class PageRankPartitioner extends
+	public static final class WordCountPartitioner extends
 			Partitioner<Text, Text> {
 
 		@Override
@@ -48,6 +53,22 @@ public class WordCounts {
 			return newKey.hashCode() % numPartitions;
 		}
 	}
+    public static class WordCountGroupingComparator extends WritableComparator {
+
+        protected WordCountGroupingComparator() {
+            super(Text.class, true);
+        }
+
+        @Override
+        public int compare(WritableComparable o1, WritableComparable o2) {
+            Text t1 = (Text) o1;
+            Text t2 = (Text) o2;
+            if (t1 == null || t2 == null)
+                return 0;
+            return t1.toString().compareTo(t2.toString());
+        }
+
+    }
 
 	public static class WordCountMapper extends Mapper<Text, Text, Text, Text> {
 		@Override
@@ -79,7 +100,7 @@ public class WordCounts {
 
 				// Check if stop word
 				Set<Object> set = StandardAnalyzer.STOP_WORDS_SET;
-				if (!set.contains(stemmedWord)) {
+				if (!set.contains(stemmedWord) && !stemmedWord.equals("")) {
 					context.write(
 							new Text(uid + ":" + tid + ":" + stemmedWord),
 							new Text("1"));

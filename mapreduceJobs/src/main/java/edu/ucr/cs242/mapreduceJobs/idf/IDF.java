@@ -1,4 +1,4 @@
-package edu.ucr.cs242.mapreduceJobs.buildluceneindexes;
+package edu.ucr.cs242.mapreduceJobs.idf;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -7,6 +7,8 @@ import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
@@ -15,11 +17,17 @@ import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.lucene.index.IndexWriter;
 
-public class Lucene {
+import edu.ucr.cs242.mapreduceJobs.pagerank.PageRank.PagePankMapper;
+import edu.ucr.cs242.mapreduceJobs.pagerank.PageRank.PagePankReducer;
+import edu.ucr.cs242.mapreduceJobs.pagerank.PageRank.PageRankComparator;
+import edu.ucr.cs242.mapreduceJobs.pagerank.PageRank.PageRankPartitioner;
+import edu.ucr.cs242.mapreduceJobs.pagerank.PageRank.PargeRankGroupingComparator;
+
+public class IDF {
 
 	public static Job createJob() throws IOException {
-		Job job = new Job(new Configuration(), "WordCounts");
-		job.setJarByClass(Lucene.class);
+		Job job = new Job(new Configuration(), "IDF");
+		job.setJarByClass(IDF.class);
 
 		job.setInputFormatClass(KeyValueTextInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
@@ -30,17 +38,18 @@ public class Lucene {
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(Text.class);
 
-		job.setPartitionerClass(WordCountPartitioner.class);
+        job.setGroupingComparatorClass(IDFGroupingComparator.class);
+        job.setPartitionerClass(IDFPartitioner.class);
+        job.setMapperClass(IDFMapper.class);
+        job.setReducerClass(IDFReducer.class);
 
-		job.setMapperClass(WordCountMapper.class);
-		job.setReducerClass(WordCountReducer.class);
-
-		// initialize wordmap
 
 		return job;
 	}
+	
+	
 
-	public static final class WordCountPartitioner extends
+	public static final class IDFPartitioner extends
 			Partitioner<Text, Text> {
 
 		@Override
@@ -50,28 +59,36 @@ public class Lucene {
 		}
 	}
 
-	public static class WordCountMapper extends Mapper<Text, Text, Text, Text> {
+	public static class IDFGroupingComparator extends WritableComparator {
+
+		protected IDFGroupingComparator() {
+			super(Text.class, true);
+		}
+
+		@Override
+		public int compare(WritableComparable o1, WritableComparable o2) {
+			Text t1 = (Text) o1;
+			Text t2 = (Text) o2;
+			if (t1 == null || t2 == null)
+				return 0;
+			return t1.toString().compareTo(t2.toString());
+		}
+
+	}
+
+	public static class IDFMapper extends Mapper<Text, Text, Text, Text> {
 
 		@Override
 		protected void map(Text key, Text value, Context context)
 				throws IOException, InterruptedException {
 
-			String[] pieces = value.toString().split("\\:");
-			String uid = pieces[0];
-			String tid = pieces[1];
-			String count = pieces[2];
-			String word = key.toString();
-
-			context.write(new Text(word), new Text(uid + ":" + tid + ":"
-					+ count));
+			context.write(key, value);
 
 		}
 	}
 
-	public static class WordCountReducer extends
+	public static class IDFReducer extends
 			Reducer<Text, Text, Text, Text> {
-
-		private IndexWriter writer;
 
 		@Override
 		protected void reduce(Text key, Iterable<Text> values, Context context)
@@ -80,24 +97,16 @@ public class Lucene {
 
 			double N = 10326522;
 			double df = 0;
-			Map<String, String> tfs = new HashMap<String, String>();
 
 			if (!valuesIt.hasNext())
 				return;
 
 			while (valuesIt.hasNext()) {
-				String value = valuesIt.next().toString();
-				String[] pieces = value.split("\\:");
 				df++;
-				tfs.put((pieces[0] + ":" + pieces[1]), pieces[2]);
 			}
-
-			for (String document : tfs.keySet()) {
-				double tf = Double.parseDouble(tfs.get(document));
+			if (df >= 1000) {
 				double idf = Math.log(N / df);
-				double tfidf = tf * idf;
-				context.write(key, new Text(document + ":" + tfidf));
-
+				context.write(key, new Text(String.valueOf(idf)));
 			}
 		}
 	}
