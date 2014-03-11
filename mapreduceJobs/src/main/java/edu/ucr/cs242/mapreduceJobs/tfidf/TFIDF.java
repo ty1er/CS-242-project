@@ -18,17 +18,11 @@ import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.lucene.index.IndexWriter;
 
-import edu.ucr.cs242.mapreduceJobs.idf.IDF.IDFComparator;
-import edu.ucr.cs242.mapreduceJobs.idf.IDF.IDFGroupingComparator;
-import edu.ucr.cs242.mapreduceJobs.idf.IDF.IDFMapper;
-import edu.ucr.cs242.mapreduceJobs.idf.IDF.IDFPartitioner;
-import edu.ucr.cs242.mapreduceJobs.idf.IDF.IDFReducer;
-
 public class TFIDF {
 
 	public static Job createJob() throws IOException {
-        Job job = new Job(new Configuration(), "TFIDF");
-        job.setJarByClass(TFIDF.class);
+		Job job = new Job(new Configuration(), "TFIDF");
+		job.setJarByClass(TFIDF.class);
 
 		job.setInputFormatClass(KeyValueTextInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
@@ -39,46 +33,38 @@ public class TFIDF {
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(Text.class);
 
-        job.setSortComparatorClass(IDFComparator.class);
-        job.setGroupingComparatorClass(IDFGroupingComparator.class);
-        job.setPartitionerClass(IDFPartitioner.class);
-        job.setMapperClass(IDFMapper.class);
-        job.setReducerClass(IDFReducer.class);
-
+		job.setSortComparatorClass(TFIDFComparator.class);
+		job.setGroupingComparatorClass(TFIDFGroupingComparator.class);
+		job.setPartitionerClass(TFIDFPartitioner.class);
+		job.setMapperClass(TFIDFMapper.class);
+		job.setReducerClass(TFIDFReducer.class);
 
 		return job;
 	}
-    public static class IDFComparator extends WritableComparator {
 
-        protected IDFComparator() {
-            super(Text.class, true);
-        }
+	public static class TFIDFComparator extends WritableComparator {
 
-        @Override
-        public int compare(WritableComparable o1, WritableComparable o2) {
-            Text t1 = (Text) o1;
-            Text t2 = (Text) o2;
-            String natKey1 = t1.toString().substring(0, t1.find(":"));
-            String natKey2 = t2.toString().substring(0, t2.find(":"));
-            int comp = natKey1.compareTo(natKey2);
-            if (comp == 0) {
-                if (t1.toString().substring(t1.find(":") + 1).indexOf("\t") > 0)
-                    return -1;
-                else if (t2.toString().substring(t2.find(":") + 1).indexOf("\t") > 0)
-                    return 1;
-                else
-                    return t1.toString().substring(t1.find(":") + 1)
-                            .compareTo(t2.toString().substring(t2.find(":") + 1));
-            }
-            return comp;
-        }
+		protected TFIDFComparator() {
+			super(Text.class, true);
+		}
 
-    }
-	
-	
+		@Override
+		public int compare(WritableComparable o1, WritableComparable o2) {
+			Text t1 = (Text) o1;
+			Text t2 = (Text) o2;
+			String natKey1 = t1.toString().substring(0, t1.find(":"));
+			String natKey2 = t2.toString().substring(0, t2.find(":"));
+			int comp = natKey1.compareTo(natKey2);
+			if (comp == 0) {
+				return t1.toString().substring(t1.find(":") + 1)
+						.compareTo(t2.toString().substring(t2.find(":") + 1));
+			}
+			return comp;
+		}
 
-	public static final class IDFPartitioner extends
-			Partitioner<Text, Text> {
+	}
+
+	public static final class TFIDFPartitioner extends Partitioner<Text, Text> {
 
 		@Override
 		public int getPartition(Text key, Text value, int numPartitions) {
@@ -87,9 +73,9 @@ public class TFIDF {
 		}
 	}
 
-	public static class IDFGroupingComparator extends WritableComparator {
+	public static class TFIDFGroupingComparator extends WritableComparator {
 
-		protected IDFGroupingComparator() {
+		protected TFIDFGroupingComparator() {
 			super(Text.class, true);
 		}
 
@@ -99,45 +85,55 @@ public class TFIDF {
 			Text t2 = (Text) o2;
 			if (t1 == null || t2 == null)
 				return 0;
-			return t1.toString().substring(0, t1.find(":")).compareTo(t2.toString().substring(0, t2.find(":")));
+			return t1.toString().substring(0, t1.find(":"))
+					.compareTo(t2.toString().substring(0, t2.find(":")));
 		}
 
 	}
 
-	public static class IDFMapper extends Mapper<Text, Text, Text, Text> {
+	public static class TFIDFMapper extends Mapper<Text, Text, Text, Text> {
 
 		@Override
 		protected void map(Text key, Text value, Context context)
 				throws IOException, InterruptedException {
 
-			context.write(key, value);
+			// check if it is a TF or an TFIDF, artificially change key
+			if (value.toString().contains(":")) {
+				context.write(new Text(key.toString() + ":1"), value);
+			} else {
+				context.write(new Text(key.toString() + ":0"), value);
+			}
 
 		}
 	}
 
-	public static class IDFReducer extends
-			Reducer<Text, Text, Text, Text> {
+	public static class TFIDFReducer extends Reducer<Text, Text, Text, Text> {
 
 		@Override
 		protected void reduce(Text key, Iterable<Text> values, Context context)
 				throws IOException, InterruptedException {
 			Iterator<Text> valuesIt = values.iterator();
 
-			double N = 10326522;
-			double df = 0;
-
 			if (!valuesIt.hasNext())
 				return;
 
-			while (valuesIt.hasNext()) {
-				String value = valuesIt.next().toString();
-				String[] pieces = value.split("\\:");
-				df++;
-			}
-			if (df > 1000) {
-				double idf = Math.log(N / df);
-				context.write(key, new Text(String.valueOf(idf)));
-			}
+			String test = valuesIt.next().toString();
+			//if (test.contains(":")) {
+			//} else {
+				double idf = Double.parseDouble(test);
+				String keyword = key.toString().substring(0, key.find(":"));
+
+				while (valuesIt.hasNext()) {
+					String value = valuesIt.next().toString();
+					String[] pieces = value.split("\\:");
+					String tid = pieces[1];
+					double tf = Double.parseDouble(pieces[2]);
+					double tfidf = tf * idf;
+					context.write(new Text(keyword),
+							new Text(tid + ":" + tfidf));
+				}
+			//}
+
 		}
 	}
 }
