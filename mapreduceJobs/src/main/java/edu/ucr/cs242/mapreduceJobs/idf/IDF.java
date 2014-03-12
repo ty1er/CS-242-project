@@ -40,7 +40,7 @@ public class IDF {
 		job.setPartitionerClass(IDFPartitioner.class);
 		job.setMapperClass(IDFMapper.class);
 		job.setReducerClass(IDFReducer.class);
-		job.setCombinerClass(IDFReducer.class);
+		job.setCombinerClass(IDFCombiner.class);
 
 		return job;
 	}
@@ -111,6 +111,25 @@ public class IDF {
 		}
 	}
 
+	public static class IDFCombiner extends Reducer<Text, Text, Text, Text> {
+
+		@Override
+		protected void reduce(Text key, Iterable<Text> values, Context context)
+				throws IOException, InterruptedException {
+			Iterator<Text> valuesIt = values.iterator();
+
+			double df = 0;
+
+			if (!valuesIt.hasNext())
+				return;
+
+			while (valuesIt.hasNext()) {
+				df += Double.parseDouble(valuesIt.next().toString());
+			}
+
+			context.write(key, new Text(String.valueOf(df)));
+		}
+	}
 
 	public static class IDFReducer extends Reducer<Text, Text, Text, Text> {
 

@@ -21,27 +21,10 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 
 public class CreateLuceneIndex {
-	private class Tweet {
-		String tid;
-		String tweetText;
-		String uid;
-		double tfidf;
 
-		public Tweet(String id, String user, String text, double tf) {
-			this.tid = id;
-			this.tweetText = text;
-			this.uid = user;
-			this.tfidf = tf;
-		}
-
-	}
-
-	private List<Tweet> tweets;
 
 	public CreateLuceneIndex(String tweetFile, String luceneDir)
 			throws IOException {
-		tweets = new ArrayList<Tweet>();
-		readTweetFile(tweetFile);
 
 		System.out.println("Indexing to directory '" + luceneDir + "'...");
 
@@ -57,7 +40,7 @@ public class CreateLuceneIndex {
 		IndexWriter writer = new IndexWriter(dir, iwc);
 
 		// Add files to index
-		indexTweets(writer);
+		indexTweets(writer, tweetFile);
 
 		// This makes write slower but search faster.
 		writer.forceMerge(1);
@@ -66,18 +49,7 @@ public class CreateLuceneIndex {
 
 	}
 
-	private void indexTweets(IndexWriter writer) throws IOException {
-		for (Tweet tweet : tweets) {
-			Document doc = new Document();
-			doc.add(new TextField("text", tweet.tweetText, Field.Store.YES));
-			doc.add(new StoredField("id", tweet.tid));
-			doc.add(new StoredField("uid", tweet.uid));
-			writer.addDocument(doc);
-		}
-
-	}
-
-	private void readTweetFile(String tweetFile) {
+	private void indexTweets(IndexWriter writer, String tweetFile) throws IOException {
 		System.out.println("Reading File");
 		String line = null;
 		BufferedReader br = null;
@@ -90,15 +62,20 @@ public class CreateLuceneIndex {
 				line = line.substring(line.indexOf('\t')+1);
 				
 				String[] pieces = line.split("\\:");
-
-				Tweet tweet = new Tweet(pieces[1], pieces[0], word, Double.parseDouble(pieces[2]));
-				tweets.add(tweet);
+				
+				Document doc = new Document();
+				doc.add(new TextField("text", word, Field.Store.YES));
+				doc.add(new StoredField("id", pieces[0]));
+				doc.add(new StoredField("score", pieces[1]));
+				writer.addDocument(doc);
 				line = br.readLine();
 			}
 		} catch (IOException e) {
 			System.err.println("Failed to read userFile: " + e.getMessage());
 		}
+
 	}
+
 
 	public static void main(String[] args) throws IOException {
 		if (args.length < 2) {
