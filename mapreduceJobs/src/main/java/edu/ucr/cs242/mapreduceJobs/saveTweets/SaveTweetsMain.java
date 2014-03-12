@@ -1,4 +1,4 @@
-package edu.ucr.cs242.mapreduceJobs.scorecombiner;
+package edu.ucr.cs242.mapreduceJobs.saveTweets;
 
 import java.io.IOException;
 
@@ -13,14 +13,14 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 
-public class ScoreCombinerMain extends Configured implements Tool {
+public class SaveTweetsMain extends Configured implements Tool {
 
     public static final double eps = 0.001;
     public static final long counterReciprocal = 100;
 
 
     public static void main(String[] args) throws Exception {
-        int res = ToolRunner.run(new ScoreCombinerMain(), args);
+        int res = ToolRunner.run(new SaveTweetsMain(), args);
         System.exit(res);
     }
 
@@ -32,7 +32,7 @@ public class ScoreCombinerMain extends Configured implements Tool {
 			return 0;
 		
 		
-		Job lJob = TuRankFilter.createJob();
+		Job lJob = SaveTweets.createJob();
 		Path outputPath = new Path(args[1]);
 		Path inputPath = new Path(args[0]);
 		FileSystem hdfs = FileSystem.get(lJob.getConfiguration());

@@ -64,7 +64,7 @@ public class CreateLuceneIndex {
 				String[] pieces = line.split("\\:");
 				
 				Document doc = new Document();
-				doc.add(new TextField("text", word, Field.Store.YES));
+				doc.add(new TextField("text", word, Field.Store.NO));
 				doc.add(new StoredField("id", pieces[0]));
 				doc.add(new StoredField("score", pieces[1]));
 				writer.addDocument(doc);

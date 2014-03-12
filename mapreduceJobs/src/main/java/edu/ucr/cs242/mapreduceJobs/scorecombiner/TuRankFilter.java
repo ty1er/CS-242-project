@@ -11,14 +11,21 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class ScoreCombiner {
+import edu.ucr.cs242.mapreduceJobs.scorecombiner.TuRankFilter.TuRankFilterComparator;
+import edu.ucr.cs242.mapreduceJobs.scorecombiner.TuRankFilter.TuRankFilterGroupingComparator;
+import edu.ucr.cs242.mapreduceJobs.scorecombiner.TuRankFilter.TuRankFilterMapper;
+import edu.ucr.cs242.mapreduceJobs.scorecombiner.TuRankFilter.TuRankFilterPartitioner;
+import edu.ucr.cs242.mapreduceJobs.scorecombiner.TuRankFilter.TuRankFilterReducer;
+
+public class TuRankFilter {
 
 	public static Job createJob() throws IOException {
-		Job job = new Job(new Configuration(), "ScoreCombiner");
-		job.setJarByClass(ScoreCombiner.class);
+		Job job = new Job(new Configuration(), "TuRankFilter");
+		job.setJarByClass(TuRankFilter.class);
 
 		job.setInputFormatClass(KeyValueTextInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
@@ -29,18 +36,18 @@ public class ScoreCombiner {
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(Text.class);
 
-		job.setSortComparatorClass(ScoreCombinerComparator.class);
-		job.setGroupingComparatorClass(ScoreCombinerGroupingComparator.class);
-		job.setPartitionerClass(ScoreCombinerPartitioner.class);
-		job.setMapperClass(ScoreCombinerMapper.class);
-		job.setReducerClass(ScoreCombinerReducer.class);
+		job.setSortComparatorClass(TuRankFilterComparator.class);
+		job.setGroupingComparatorClass(TuRankFilterGroupingComparator.class);
+		job.setPartitionerClass(TuRankFilterPartitioner.class);
+		job.setMapperClass(TuRankFilterMapper.class);
+		job.setReducerClass(TuRankFilterReducer.class);
 
 		return job;
 	}
 
-	public static class ScoreCombinerComparator extends WritableComparator {
+	public static class TuRankFilterComparator extends WritableComparator {
 
-		protected ScoreCombinerComparator() {
+		protected TuRankFilterComparator() {
 			super(Text.class, true);
 		}
 
@@ -60,7 +67,7 @@ public class ScoreCombiner {
 
 	}
 
-	public static final class ScoreCombinerPartitioner extends
+	public static final class TuRankFilterPartitioner extends
 			Partitioner<Text, Text> {
 
 		@Override
@@ -70,10 +77,10 @@ public class ScoreCombiner {
 		}
 	}
 
-	public static class ScoreCombinerGroupingComparator extends
+	public static class TuRankFilterGroupingComparator extends
 			WritableComparator {
 
-		protected ScoreCombinerGroupingComparator() {
+		protected TuRankFilterGroupingComparator() {
 			super(Text.class, true);
 		}
 
@@ -89,7 +96,7 @@ public class ScoreCombiner {
 
 	}
 
-	public static class ScoreCombinerMapper extends
+	public static class TuRankFilterMapper extends
 			Mapper<Text, Text, Text, Text> {
 
 		@Override
@@ -102,17 +109,11 @@ public class ScoreCombiner {
 				String score = value.toString().substring(0,value.find("\t"));
 				context.write(new Text(tid + ":0"), new Text(score));
 				}
-			} else{
-				String word = key.toString();
-				String[] pieces = value.toString().split("\\:");
-				context.write(new Text(pieces[0] + ":1"), new Text(word + ":" + pieces[1]));
 			}
-			
-
 		}
 	}
 
-	public static class ScoreCombinerReducer extends
+	public static class TuRankFilterReducer extends
 			Reducer<Text, Text, Text, Text> {
 
 		@Override
@@ -123,18 +124,9 @@ public class ScoreCombiner {
 			if (!valuesIt.hasNext())
 				return;
 
-			String test = valuesIt.next().toString();
-
-			double tuRank = Double.parseDouble(test);
-			String tid = key.toString().substring(0, key.find(":"));
-
 			while (valuesIt.hasNext()) {
 				String value = valuesIt.next().toString();
-				String[] pieces = value.split("\\:");
-				String word = pieces[0];
-				double tfidf = Double.parseDouble(pieces[1]);
-				double score = tuRank + tfidf;
-				context.write(new Text(word), new Text(tid + ":" + score));
+				context.write(key, new Text(value));
 			}
 
 		}
