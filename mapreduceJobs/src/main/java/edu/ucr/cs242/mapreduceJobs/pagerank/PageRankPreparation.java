@@ -12,14 +12,13 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-
 public class PageRankPreparation {
 
     public static final double initialPR = 1.0;
 
     public static Job createJob() throws IOException {
         Job job = new Job(new Configuration(), "PageRankPreparation");
-
+        job.setJarByClass(PageRankPreparation.class);
         job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 

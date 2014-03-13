@@ -151,12 +151,7 @@ public class TURank {
                 return;
             String firstVal = valuesIt.next().toString();
             int delimiterPos = firstVal.toString().indexOf('\t');
-            double prevRP = 0;
-            try {
-                prevRP = Double.parseDouble(firstVal.substring(0, delimiterPos));
-            } catch (Exception e) {
-                log.error("Error during processing of first value \"" + firstVal + "\":" + e.getMessage(), e);
-            }
+            double prevRP = Double.parseDouble(firstVal.substring(0, delimiterPos));
             String otherFields = firstVal.substring(delimiterPos + 1);
 
             //calculating new pageRank

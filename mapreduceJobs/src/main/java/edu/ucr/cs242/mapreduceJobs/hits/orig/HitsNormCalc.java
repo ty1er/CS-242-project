@@ -14,7 +14,7 @@ import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 public class HitsNormCalc {
     public static Job createJob() throws IOException {
         Job job = new Job(new Configuration(), "HitsNormCalc");
-
+        job.setJarByClass(HitsNormCalc.class);
         job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(SequenceFileOutputFormat.class);
 

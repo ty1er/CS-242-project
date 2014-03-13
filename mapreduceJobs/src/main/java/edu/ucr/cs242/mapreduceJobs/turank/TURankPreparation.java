@@ -75,15 +75,16 @@ public class TURankPreparation {
     public static class HitsPreparationMapper extends Mapper<Text, Text, Text, Text> {
         @Override
         protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
-            int separatorPos = value.find("\t");
-            if (separatorPos == -1) {
+            int tabSeparatorPos = value.find("\t");
+            int comma = value.find(",");
+            if (tabSeparatorPos == -1) {
                 //process social graph
                 context.write(new Text("follow:user_" + value), new Text("user_" + key));
                 context.write(new Text("follow:user_" + key.toString()), new Text(""));
             } else {
                 //process retweet log
-                String retweetedUserId = value.toString().substring(0, separatorPos);
-                String[] reweeters = value.toString().substring(separatorPos + 1).split(",");
+                String retweetedUserId = value.toString().substring(0, tabSeparatorPos);
+                String[] reweeters = value.toString().substring(tabSeparatorPos + 1).split(",");
                 context.write(new Text("post:" + "user_" + retweetedUserId), new Text("tweet_" + key));
                 context.write(new Text("posted:" + "tweet_" + key), new Text("user_" + retweetedUserId));
                 for (String retweeter : reweeters) {

@@ -19,7 +19,7 @@ import edu.ucr.cs242.mapreduceJobs.hits.orig.HitsOrigPreparation.HitsPartitioner
 public class HitsNormalization {
     public static Job createJob() throws IOException {
         Job job = new Job(new Configuration(), "HitsNormalize");
-
+        job.setJarByClass(HitsNormalization.class);
         job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 

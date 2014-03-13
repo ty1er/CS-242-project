@@ -20,7 +20,7 @@ public class HitsOrigPreparation {
 
     public static Job createJob() throws IOException {
         Job job = new Job(new Configuration(), "HitsOrigPreparation");
-
+        job.setJarByClass(HitsOrigPreparation.class);
         job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 

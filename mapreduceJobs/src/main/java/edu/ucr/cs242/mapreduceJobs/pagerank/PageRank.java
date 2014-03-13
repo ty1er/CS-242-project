@@ -25,7 +25,7 @@ public class PageRank {
 
     public static Job createJob() throws IOException {
         Job job = new Job(new Configuration(), "PageRank");
-
+        job.setJarByClass(PageRank.class);
         job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 

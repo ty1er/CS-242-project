@@ -19,7 +19,7 @@ import edu.ucr.cs242.mapreduceJobs.hits.orig.HitsOrigPreparation.HitsPartitioner
 public class HitsOrig {
     public static Job createJob() throws IOException {
         Job job = new Job(new Configuration(), "HitsOrig");
-
+        job.setJarByClass(HitsOrig.class);
         job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 
