@@ -30,18 +30,16 @@ public class TURankMain extends Configured implements Tool {
 
     public int run(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
 
-        if (args.length < 3)
+        if (args.length < 4)
             return 0;
 
-        Job preparationJob = TURankPreparation.createJob();
+        Job preparationJob = TURankPreparation.createJob(new Path(args[0]), new Path(args[1]), new Path(args[2]));
 
         //preparing TURank first iteration
         FileSystem hdfs = FileSystem.get(preparationJob.getConfiguration());
-        Path outputPath1 = new Path(args[2] + "/iteration0");
+        Path outputPath1 = new Path(args[3] + "/iteration33");
         if (hdfs.exists(outputPath1))
             hdfs.delete(outputPath1, true);
-        FileInputFormat.addInputPath(preparationJob, new Path(args[0]));
-        FileInputFormat.addInputPath(preparationJob, new Path(args[1]));
         FileOutputFormat.setOutputPath(preparationJob, outputPath1);
         log.info("Preparing TURank interations");
         boolean jobCompleted = preparationJob.waitForCompletion(true);
@@ -55,7 +53,7 @@ public class TURankMain extends Configured implements Tool {
             //Getting number of followers per user
             Job prIterationJob = TURank.createJob();
 
-            Path outputPath2 = new Path(args[2] + "/iteration" + iterationCounter);
+            Path outputPath2 = new Path(args[3] + "/iteration" + iterationCounter);
             if (hdfs.exists(outputPath2))
                 hdfs.delete(outputPath2, true);
             FileInputFormat.addInputPath(prIterationJob, outputPath1);
@@ -68,6 +66,17 @@ public class TURankMain extends Configured implements Tool {
             hdfs.delete(outputPath1, true);
             outputPath1 = outputPath2;
         }
+
+        Job filteringJob = TuRankFilter.createJob();
+        Path outputPath3 = new Path(args[3] + "/result");
+        if (hdfs.exists(outputPath3))
+            hdfs.delete(outputPath3, true);
+        log.info("Final TURank filtering");
+        FileInputFormat.addInputPath(filteringJob, outputPath1);
+        FileOutputFormat.setOutputPath(filteringJob, outputPath3);
+        jobCompleted = filteringJob.waitForCompletion(true);
+        if (!jobCompleted)
+            return 0;
 
         return 1;
     }

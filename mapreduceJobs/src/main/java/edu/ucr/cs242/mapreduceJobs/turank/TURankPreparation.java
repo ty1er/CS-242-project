@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableComparator;
@@ -15,6 +16,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import com.google.common.base.Joiner;
@@ -23,11 +25,10 @@ public class TURankPreparation {
 
     public static final double initialTR = 1.0;
 
-    public static Job createJob() throws IOException {
+    public static Job createJob(Path tweetInput, Path retweetPath, Path usersPath) throws IOException {
         Job job = new Job(new Configuration(), "HitsOrigPreparation");
 
         job.setJarByClass(TURankPreparation.class);
-        job.setInputFormatClass(KeyValueTextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 
         job.setMapOutputKeyClass(Text.class);
@@ -36,18 +37,21 @@ public class TURankPreparation {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        job.setPartitionerClass(HitsPartitioner.class);
-        job.setGroupingComparatorClass(HitsGroupingComparator.class);
-        job.setSortComparatorClass(HitsComparator.class);
-        job.setMapperClass(HitsPreparationMapper.class);
-        job.setReducerClass(HitsPreparationReducer.class);
+        job.setPartitionerClass(TURankPartitioner.class);
+        job.setGroupingComparatorClass(TURankGroupingComparator.class);
+        job.setSortComparatorClass(TURankComparator.class);
+        MultipleInputs.addInputPath(job, tweetInput, KeyValueTextInputFormat.class, TURankTweetMapper.class);
+        MultipleInputs.addInputPath(job, retweetPath, KeyValueTextInputFormat.class, TURankRetweetMapper.class);
+        MultipleInputs.addInputPath(job, usersPath, KeyValueTextInputFormat.class, TURankUsersMapper.class);
+        //        job.setMapperClass(HitsPreparationMapper.class);
+        job.setReducerClass(TURankPreparationReducer.class);
 
         return job;
     }
 
-    public static class HitsComparator extends WritableComparator {
+    public static class TURankComparator extends WritableComparator {
 
-        protected HitsComparator() {
+        protected TURankComparator() {
             super(Text.class, true);
         }
 
@@ -72,33 +76,47 @@ public class TURankPreparation {
 
     }
 
-    public static class HitsPreparationMapper extends Mapper<Text, Text, Text, Text> {
+    //process social graph
+    public static class TURankUsersMapper extends Mapper<Text, Text, Text, Text> {
         @Override
         protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
-            int tabSeparatorPos = value.find("\t");
-            int comma = value.find(",");
-            if (tabSeparatorPos == -1) {
-                //process social graph
-                context.write(new Text("follow:user_" + value), new Text("user_" + key));
-                context.write(new Text("follow:user_" + key.toString()), new Text(""));
-            } else {
-                //process retweet log
-                String retweetedUserId = value.toString().substring(0, tabSeparatorPos);
-                String[] reweeters = value.toString().substring(tabSeparatorPos + 1).split(",");
-                context.write(new Text("post:" + "user_" + retweetedUserId), new Text("tweet_" + key));
-                context.write(new Text("posted:" + "tweet_" + key), new Text("user_" + retweetedUserId));
-                for (String retweeter : reweeters) {
-                    if (!retweeter.isEmpty()) {
-                        context.write(new Text("rt:" + "user_" + retweeter), new Text("tweet_" + key.toString()));
-                    }
-                }
-            }
+            context.write(new Text("follow:user_" + value), new Text("user_" + key));
+            context.write(new Text("follow:user_" + key.toString()), new Text(""));
         }
     }
 
-    public static class HitsGroupingComparator extends WritableComparator {
+    //process retweet log
+    public static class TURankRetweetMapper extends Mapper<Text, Text, Text, Text> {
+        @Override
+        protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
+            int tabSeparatorPos = value.find("\t");
+            String retweetedUserId = value.toString().substring(0, tabSeparatorPos);
+            String[] reweeters = value.toString().substring(tabSeparatorPos + 1).split(",");
+            context.write(new Text("post:" + "user_" + retweetedUserId), new Text("tweet_" + key));
+            context.write(new Text("posted:" + "tweet_" + key), new Text("user_" + retweetedUserId));
+            for (String retweeter : reweeters) {
+                if (!retweeter.isEmpty()) {
+                    context.write(new Text("rt:" + "user_" + retweeter), new Text("tweet_" + key.toString()));
+                }
+            }
 
-        protected HitsGroupingComparator() {
+        }
+    }
+
+    //process tweet log
+    public static class TURankTweetMapper extends Mapper<Text, Text, Text, Text> {
+        @Override
+        protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
+            int tabSeparatorPos = value.find("\t");
+            String tweetId = value.toString().substring(0, tabSeparatorPos);
+            context.write(new Text("post:" + "user_" + key), new Text("tweet_" + tweetId));
+            context.write(new Text("posted:" + "tweet_" + tweetId), new Text("user_" + key));
+        }
+    }
+
+    public static class TURankGroupingComparator extends WritableComparator {
+
+        protected TURankGroupingComparator() {
             super(Text.class, true);
         }
 
@@ -113,7 +131,7 @@ public class TURankPreparation {
 
     }
 
-    public static final class HitsPartitioner extends Partitioner<Text, Text> {
+    public static final class TURankPartitioner extends Partitioner<Text, Text> {
 
         @Override
         public int getPartition(Text key, Text value, int numPartitions) {
@@ -122,7 +140,7 @@ public class TURankPreparation {
         }
     }
 
-    public static class HitsPreparationReducer extends Reducer<Text, Text, Text, Text> {
+    public static class TURankPreparationReducer extends Reducer<Text, Text, Text, Text> {
         @Override
         protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException,
                 InterruptedException {
