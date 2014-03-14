@@ -41,7 +41,7 @@ public class LuceneServlet extends HttpServlet {
 		Iterator i = set.iterator();
 		
     	PrintWriter wr = response.getWriter();
-        wr.println("<h1>Hello from Lucene</hi>");
+        wr.println("<h1>Hello from Lucene</h1>");
         
 		while (i.hasNext()) {
 			Map.Entry me = (Map.Entry) i.next();

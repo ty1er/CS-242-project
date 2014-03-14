@@ -34,6 +34,8 @@ import org.apache.lucene.util.Version;
 
 public class SearchHadoopIndex {
 	
+	public Map<Double,String> sortedMap;
+	
     private static class ScoreComparator implements Comparator{
 
 		@Override
@@ -87,21 +89,12 @@ public class SearchHadoopIndex {
         List<Double> keys = new LinkedList<Double>(scoreToTid.keySet());
 
         Collections.sort(keys, new ScoreComparator());
-        Map<Double,String> sortedMap = new LinkedHashMap<Double,String>();
+        sortedMap = new LinkedHashMap<Double,String>();
         for(Double key: keys){
             sortedMap.put(key.doubleValue(), scoreToTid.get(key));
         }
 		
-		set = sortedMap.entrySet();
-		i = set.iterator();
-		while (i.hasNext()) {
-			Map.Entry me = (Map.Entry) i.next();
-			String tid = me.getValue().toString();
-			String TweetText = getIndexEntry(tweetDir, tid, false);
-			System.out.println(me.getKey().toString() + " "
-					+ me.getValue().toString() + " " + TweetText);
 
-		}
 
 	}
 	public String getIndexEntry(String indexDir, String key, Boolean word){
