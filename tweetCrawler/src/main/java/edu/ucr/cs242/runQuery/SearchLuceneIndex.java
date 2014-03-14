@@ -39,6 +39,7 @@ public class SearchLuceneIndex {
 	Analyzer analyzer;
 	QueryParser parser;
 	ScoreDoc[] hits;
+	public Map<Double,String> sortedMap;
 	
     private static class ScoreComparator implements Comparator{
 
@@ -97,21 +98,11 @@ public class SearchLuceneIndex {
         List<Double> keys = new LinkedList<Double>(scoreToTid.keySet());
 
         Collections.sort(keys, new ScoreComparator());
-        Map<Double,String> sortedMap = new LinkedHashMap<Double,String>();
+        sortedMap = new LinkedHashMap<Double,String>();
         for(Double key: keys){
             sortedMap.put(key.doubleValue(), scoreToTid.get(key));
         }
-		
-		set = sortedMap.entrySet();
-		i = set.iterator();
-		while (i.hasNext()) {
-			Map.Entry me = (Map.Entry) i.next();
-			String tid = me.getValue().toString();
-			String TweetText = getTweetText(tweetDir, tid);
-			System.out.println(me.getKey().toString() + " "
-					+ me.getValue().toString() + " " + TweetText);
 
-		}
 
 	}
 	public String getTweetText(String tweetDir, String tid){
