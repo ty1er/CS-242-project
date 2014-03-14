@@ -27,6 +27,7 @@ public class LuceneServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         PrintWriter wr = response.getWriter();
         wr.println("<h1>Hello from Lucene</hi>");
+
     }
 
     /**

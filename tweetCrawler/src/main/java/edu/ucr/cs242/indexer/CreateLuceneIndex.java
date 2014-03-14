@@ -41,7 +41,8 @@ public class CreateLuceneIndex {
 
 		// Add files to index
 		indexTweets(writer, tweetFile);
-
+		System.out.println("done");
+		
 		// This makes write slower but search faster.
 		writer.forceMerge(1);
 
@@ -56,6 +57,7 @@ public class CreateLuceneIndex {
 		try {
 			br = new BufferedReader(new FileReader(tweetFile));
 			line = br.readLine();
+			int count = 0;
 			while (line != null) {
 				// extract UserId
 				String word = line.substring(0,line.indexOf('\t'));
@@ -64,11 +66,17 @@ public class CreateLuceneIndex {
 				String[] pieces = line.split("\\:");
 				
 				Document doc = new Document();
-				doc.add(new TextField("text", word, Field.Store.NO));
+				doc.add(new TextField("text", word, Field.Store.YES));
 				doc.add(new StoredField("id", pieces[0]));
 				doc.add(new StoredField("score", pieces[1]));
+
 				writer.addDocument(doc);
 				line = br.readLine();
+				count ++;
+				if (count % 100 == 0){
+					System.out.println("100 words");
+					count = 0;
+				}
 			}
 		} catch (IOException e) {
 			System.err.println("Failed to read userFile: " + e.getMessage());

@@ -28,18 +28,16 @@ public class ScoreCombinerMain extends Configured implements Tool {
     public int run(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
 
     	//inputfolder outputfolder lucenedir wordcountfile mincount
-		if (args.length < 2)
+		if (args.length < 3)
 			return 0;
 		
 		
-		Job lJob = TuRankFilter.createJob();
-		Path outputPath = new Path(args[1]);
-		Path inputPath = new Path(args[0]);
+		Job lJob = ScoreCombiner.createJob(new Path(args[0]), new Path(args[1]));
+		Path outputPath = new Path(args[2]);
 		FileSystem hdfs = FileSystem.get(lJob.getConfiguration());
 		if (hdfs.exists(outputPath))
 			hdfs.delete(outputPath, true);
 
-		FileInputFormat.addInputPath(lJob, inputPath);
 		FileOutputFormat.setOutputPath(lJob, outputPath);
 		boolean jobCompleted = lJob.waitForCompletion(true);
 		if (!jobCompleted)

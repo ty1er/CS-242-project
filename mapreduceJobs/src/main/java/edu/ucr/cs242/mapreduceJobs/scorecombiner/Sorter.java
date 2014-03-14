@@ -77,8 +77,7 @@ public class Sorter {
 		@Override
 		protected void map(Text key, Text value, Context context)
 				throws IOException, InterruptedException {
-			String[] pieces = value.toString().split("\\:");
-			context.write(new Text(pieces[1]), key);
+			context.write(value, key);
 		}
 
 	}

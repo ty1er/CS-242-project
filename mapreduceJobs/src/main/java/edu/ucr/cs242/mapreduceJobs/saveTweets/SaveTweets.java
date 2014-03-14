@@ -35,6 +35,7 @@ public class SaveTweets {
 		job.setPartitionerClass(SaveTweetsPartitioner.class);
 		job.setMapperClass(SaveTweetsMapper.class);
 		job.setReducerClass(SaveTweetsReducer.class);
+		job.setNumReduceTasks(1000);
 
 		return job;
 	}
@@ -45,6 +46,9 @@ public class SaveTweets {
 		@Override
 		public int getPartition(Text key, Text value, int numPartitions) {
 			String newKey = key.toString();
+			if (newKey.length() > 5){
+				return newKey.substring(0, 5).hashCode() % numPartitions;
+			}
 			return newKey.hashCode() % numPartitions;
 		}
 	}
@@ -78,7 +82,10 @@ public class SaveTweets {
 			int tabLocation = value.toString().indexOf('\t');
 			String tid = (value.toString().substring(0, tabLocation));
 			String tweetText = value.toString().substring(tabLocation + 1);
-			
+			tweetText = tweetText.replace("\"", "");
+			tweetText = tweetText.replace("\'", "");
+			tweetText = tweetText.replace("\n", "");
+			tweetText = tweetText.replace("\t", "");
 			context.write(new Text(tid), new Text(tweetText));
 		}
 	}
@@ -86,13 +93,6 @@ public class SaveTweets {
 	public static class SaveTweetsReducer extends
 			Reducer<Text, Text, Text, Text> {
 
-		
-		private MultipleOutputs<Text, Text> mos;
-		
-		@Override
-	    public void setup(Context context){
-	        mos = new MultipleOutputs<Text, Text>(context);
-	    }
  
 		@Override
 		protected void reduce(Text key, Iterable<Text> values, Context context)
@@ -102,21 +102,12 @@ public class SaveTweets {
 			if (!valuesIt.hasNext())
 				return;
 
-			String filename = String.valueOf(key.toString().hashCode() % 1000);
 			while (valuesIt.hasNext()) {
 				String value = valuesIt.next().toString();
-				value = value.replace("\"", "");
-				value = value.replace("\'", "");
-				value = value.replace("\n", "");
-				value = value.replace("\t", "");
-				mos.write(new Text(""), new Text("\"" + key.toString() + "\"" + " : \"" + value + "\"" + ",\n"), "/user/group42/output/" + filename);
+				context.write(new Text(""), new Text("\"" + key.toString() + "\"" + " : \"" + value + "\"" + ","));
 			}
 
 		}
-		
-		@Override
-	    public void cleanup(Context context) throws IOException, InterruptedException {
-	        mos.close();
-	    }
+
 	}
 }

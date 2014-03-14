@@ -7,6 +7,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableComparator;
+import org.apache.hadoop.mapred.lib.MultipleTextOutputFormat;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
@@ -36,6 +37,7 @@ public class HadoopIndex {
 		job.setPartitionerClass(HadoopIndexPartitioner.class);
 		job.setMapperClass(HadoopIndexMapper.class);
 		job.setReducerClass(HadoopIndexReducer.class);
+		job.setNumReduceTasks(1000);
 
 		return job;
 	}
@@ -45,6 +47,9 @@ public class HadoopIndex {
 		@Override
 		public int getPartition(Text key, Text value, int numPartitions) {
 			String newKey = key.toString();
+			if (newKey.length() > 5){
+			return newKey.substring(newKey.length()-6, newKey.length()-1).hashCode() % numPartitions;
+			}
 			return newKey.hashCode() % numPartitions;
 		}
 	}
@@ -81,13 +86,6 @@ public class HadoopIndex {
 
 	public static class HadoopIndexReducer extends Reducer<Text, Text, Text, Text> {
 		
-		
-		private MultipleOutputs<Text, Text> mos;
-		
-		@Override
-	    public void setup(Context context){
-	        mos = new MultipleOutputs<Text, Text>(context);
-	    }
 
 		@Override
 		protected void reduce(Text key, Iterable<Text> values, Context context)
@@ -105,14 +103,9 @@ public class HadoopIndex {
 				tidColonScores += tidColonScore;
 				context.progress();
 			}
-			String filename = String.valueOf(word.hashCode() % 1000);
-			mos.write(new Text(""), new Text("\"word\"" + " : \"" + tidColonScores + "\"" + ",\n"), "/user/group42/output/" + filename);
+			context.write(new Text(""), new Text("\"" + word + "\"" + " : \"" + tidColonScores + "\"" + ","));
 
 		}
 		
-		@Override
-	    public void cleanup(Context context) throws IOException, InterruptedException {
-	        mos.close();
-	    }
 	}
 }

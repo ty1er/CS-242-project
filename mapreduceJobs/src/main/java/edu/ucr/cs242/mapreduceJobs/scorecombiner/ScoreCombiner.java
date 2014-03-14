@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableComparator;
@@ -12,11 +13,15 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+
+import edu.ucr.cs242.mapreduceJobs.turank.TURankPreparation.TURankRetweetMapper;
+import edu.ucr.cs242.mapreduceJobs.turank.TURankPreparation.TURankTweetMapper;
 
 public class ScoreCombiner {
 
-	public static Job createJob() throws IOException {
+	public static Job createJob(Path tfidfpath, Path turankpath) throws IOException {
 		Job job = new Job(new Configuration(), "ScoreCombiner");
 		job.setJarByClass(ScoreCombiner.class);
 
@@ -32,7 +37,8 @@ public class ScoreCombiner {
 		job.setSortComparatorClass(ScoreCombinerComparator.class);
 		job.setGroupingComparatorClass(ScoreCombinerGroupingComparator.class);
 		job.setPartitionerClass(ScoreCombinerPartitioner.class);
-		job.setMapperClass(ScoreCombinerMapper.class);
+        MultipleInputs.addInputPath(job, turankpath, KeyValueTextInputFormat.class, TURANKMapper.class);
+        MultipleInputs.addInputPath(job, tfidfpath, KeyValueTextInputFormat.class, TFIDFMapper.class);
 		job.setReducerClass(ScoreCombinerReducer.class);
 
 		return job;
@@ -89,26 +95,35 @@ public class ScoreCombiner {
 
 	}
 
-	public static class ScoreCombinerMapper extends
-			Mapper<Text, Text, Text, Text> {
+	public static class TFIDFMapper extends Mapper<Text, Text, Text, Text> {
+
+		@Override
+		protected void map(Text key, Text value, Context context)
+				throws IOException, InterruptedException {
+			String word = key.toString();
+			String[] pieces = value.toString().split("\\:");
+			context.write(new Text(pieces[0] + ":1"), new Text(word + ":"
+					+ pieces[1]));
+
+		}
+	}
+
+	public static class TURANKMapper extends Mapper<Text, Text, Text, Text> {
 
 		@Override
 		protected void map(Text key, Text value, Context context)
 				throws IOException, InterruptedException {
 
-			if (key.toString().contains("_")) {
-				if (key.toString().contains("tweet")){
-				String tid = key.toString().substring(key.find("_")+1);
-				String score = value.toString().substring(0,value.find("\t"));
-				context.write(new Text(tid + ":0"), new Text(score));
-				}
-			} else{
-				String word = key.toString();
-				String[] pieces = value.toString().split("\\:");
-				context.write(new Text(pieces[0] + ":1"), new Text(word + ":" + pieces[1]));
+			String tid = key.toString();
+			double score = Double.parseDouble(value.toString());
+			if (score <= 0.18503099884985902) {
+				score = 0;
+			} else if (score >= 81.62800157711727) {
+				score = 1;
+			} else {
+				score = ((score - 0.18503099884985902) / (81.62800157711727 - 0.18503099884985902));
 			}
-			
-
+			context.write(new Text(tid + ":0"), new Text(String.valueOf(score)));
 		}
 	}
 
